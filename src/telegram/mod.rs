@@ -15,7 +15,7 @@ use self::command::Command;
 
 
 #[tokio::main]
-pub async fn run_bot(database: &Database) -> Result<()> {
+pub async fn run_bot() -> Result<()> {
     teloxide::enable_logging!();
     log::info!("Starting dices_bot...");
 
@@ -47,7 +47,7 @@ fn perform_action(action: &Action) -> anyhow::Result<Response> {
     let database = Database::new(&Path::new(config::DEFAULT_DB_PATH));
     Ok(match action {
         Action::CreateNewChallenge(challenge) => {
-            let challenge_id = database.add_challenge(&challenge)?;
+            database.add_challenge(&challenge)?;
             Response::Reply(format!("Creating new challenge named {}! Kaclxokca!", &challenge.name))
         }
         Action::UserSubscribedToChallenge => {
