@@ -1,7 +1,8 @@
-use crate::database::challenge::Challenge;
+use crate::challenge_data::ChallengeData;
 
 pub enum Action {
-    CreateNewChallenge(Challenge),
-    UserSubscribedToChallenge,
+    CreateNewChallenge(ChallengeData),
+    SubscribeChallenge(i32, String),
     SendHelp,
+    Test,
 }

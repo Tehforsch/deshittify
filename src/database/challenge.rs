@@ -1,7 +1,7 @@
-use crate::time_frame::TimeFrame;
+use crate::challenge_data::ChallengeData;
 
+#[derive(Clone)]
 pub struct Challenge {
-    pub id: Option<i64>,
-    pub name: String,
-    pub time_frame: TimeFrame,
+    pub id: i64,
+    pub data: ChallengeData,
 }

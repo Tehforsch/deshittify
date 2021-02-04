@@ -15,3 +15,4 @@ rusqlite = { version = "0.24.2", features = ["chrono"] }
 chrono = "0.4"
 anyhow = "1.0.13"
 tokio = { version =  "0.2.11", features = ["rt-threaded", "macros"] }
+lazy_static = "1.4.0"
