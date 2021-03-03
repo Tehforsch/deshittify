@@ -30,7 +30,7 @@ lazy_static! {
 #[tokio::main]
 pub async fn run_bot() -> Result<()> {
     teloxide::enable_logging!();
-    log::info!("Starting dices_bot...");
+    log::info!("Starting deshittify_bot...");
 
     let bot = Bot::from_env();
     let bot_name = "deshittify";
@@ -43,13 +43,12 @@ pub async fn run_bot() -> Result<()> {
     // teloxide::commands_repl(bot, bot_name, reply_command);
     Dispatcher::new(bot)
         .messages_handler(move |rx: DispatcherHandlerRx<Message>| {
-            rx.commands(bot_name)
-                .for_each_concurrent(None, |(cx, command)| async move {
-                    reply_command(cx, command).await.log_on_error().await;
-                })
+            rx.commands(bot_name).for_each(|(cx, command)| async move {
+                reply_command(cx, command).await.log_on_error().await;
+            })
         })
         .callback_queries_handler(move |rx: DispatcherHandlerRx<CallbackQuery>| {
-            rx.for_each_concurrent(None, |cx| async move {
+            rx.for_each(|cx| async move {
                 reply_callback_query(cx).await.log_on_error().await;
             })
         })
@@ -66,19 +65,44 @@ async fn reply_command(message: UpdateWithCx<Message>, command: Command) -> Resu
 }
 
 async fn reply_callback_query(message: UpdateWithCx<CallbackQuery>) -> Result<()> {
-    dbg!(&message);
-    if let MessageKind::Common(x) = message.update.message.unwrap().kind {
+    let action = convert_callback_query_to_action(&message)?;
+    let response = perform_action(&action)?;
+    perform_reponse_to_callback_query(&response, &message).await
+}
+
+async fn perform_reponse_to_callback_query(
+    response: &Response,
+    update: &UpdateWithCx<CallbackQuery>,
+) -> Result<()> {
+    match response {
+        Response::Reply(text) => {
+            let chat_id = update.update.message.as_ref().unwrap().chat.id;
+            dbg!(chat_id, text);
+            update
+                .bot
+                .send_message(chat_id, text)
+                .send()
+                .await
+                .context("While sending reply")?;
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn convert_callback_query_to_action(message: &UpdateWithCx<CallbackQuery>) -> Result<Action> {
+    if let MessageKind::Common(x) = &message.update.message.as_ref().unwrap().kind {
         if let InlineKeyboardButtonKind::CallbackData(data) =
-            &x.reply_markup.unwrap().inline_keyboard[0][0].kind
+            &x.reply_markup.as_ref().unwrap().inline_keyboard[0][0].kind
         {
-            dbg!(&data);
+            let challenge_id: i32 = data.parse()?;
+            let user_id = message.update.from.id;
+            // let user_name = "asd".to_owned();
+            let user_name = message.update.from.first_name.clone();
+            return Ok(Action::SubscribeChallenge(user_id, challenge_id, user_name));
         }
     };
     todo!()
-    // let action = convert_message_to_action(&message, command)?;
-    // let response = perform_action(&action)?
-    // ;
-    // perform_reponse(&response, &message).await
 }
 
 fn convert_message_to_action(message: &UpdateWithCx<Message>, command: Command) -> Result<Action> {
@@ -86,13 +110,6 @@ fn convert_message_to_action(message: &UpdateWithCx<Message>, command: Command) 
         Command::Help => Ok(Action::SendHelp),
         Command::CreateNewChallenge { name } => {
             Ok(Action::CreateNewChallenge(get_test_challenge(&name)))
-        }
-        Command::Subscribe { challenge_name } => {
-            let user = message
-                .update
-                .from()
-                .ok_or_else(|| anyhow!("Subscribe message has no user!"))?;
-            Ok(Action::SubscribeChallenge(user.id, challenge_name))
         }
         Command::Test => Ok(Action::Test),
     }
@@ -105,9 +122,13 @@ fn perform_action(action: &Action) -> anyhow::Result<Response> {
             let challenge = database.add_challenge(challenge_data)?;
             Response::SubscriptionPrompt(challenge)
         }
-        Action::SubscribeChallenge(user_id, challenge_name) => {
-            database.subscribe_to_challenge(*user_id, &challenge_name)?;
-            Response::Reply(format!("Subscribed! Kaclxokca!"))
+        Action::SubscribeChallenge(user_id, challenge_id, user_name) => {
+            let already_subscribed = database.subscribe_to_challenge(*user_id, *challenge_id)?;
+            if !already_subscribed {
+                Response::Reply(format!("{} accepted the challenge! Kaclxokca!", user_name))
+            } else {
+                Response::Nothing
+            }
         }
         Action::SendHelp => Response::SendHelp,
         Action::Test => Response::Test,
@@ -130,6 +151,7 @@ async fn perform_reponse(response: &Response, message: &UpdateWithCx<Message>) -
         Response::SubscriptionPrompt(challenge) => {
             send_subscription_prompt(challenge, message).await
         }
+        Response::Nothing => return Ok(()),
     };
     result.map(|_| ())
 }
@@ -166,8 +188,6 @@ async fn send_subscription_prompt(
         .send()
         .await
         .context("");
-    // let res = message.answer("").send().await.context("");
-    println!("ja lol hey");
     res
 }
 

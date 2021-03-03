@@ -22,6 +22,7 @@ impl Database {
             connection: Connection::open(&path).unwrap(),
         }
     }
+
     pub fn add_challenge(&self, challenge: &ChallengeData) -> Result<Challenge> {
         self.connection.execute(
             "INSERT INTO challenge (name, time_start, time_end) VALUES (?1, ?2, ?3)",
@@ -32,8 +33,17 @@ impl Database {
             ],
         )?;
 
+        let id = self.connection.last_insert_rowid();
+        let mut statement = self
+            .connection
+            .prepare("SELECT id FROM challenge WHERE rowid = ?1")?;
+        let challenge_id = statement
+            .query_map(params![id], |row| Ok(row.get(0)?))?
+            .next()
+            .unwrap()?;
+
         Ok(Challenge {
-            id: self.connection.last_insert_rowid(),
+            id: challenge_id,
             data: challenge.clone(),
         })
     }
@@ -55,15 +65,16 @@ impl Database {
         todo!()
     }
 
-    pub fn subscribe_to_challenge(&self, user_id: i32, challenge_name: &str) -> Result<()> {
-        let challenge_id = self.get_challenge_id_from_name(challenge_name)?;
-        if !self.check_user_subscribed_to_challenge(user_id, challenge_id)? {
+    pub fn subscribe_to_challenge(&self, user_id: i32, challenge_id: i32) -> Result<bool> {
+        let user_already_subscribed =
+            self.check_user_subscribed_to_challenge(user_id, challenge_id)?;
+        if !user_already_subscribed {
             self.connection.execute(
                 "INSERT INTO userChallenge (user_id, challenge_id) VALUES (?1, ?2)",
                 params![user_id, challenge_id,],
             )?;
         }
-        Ok(())
+        Ok(user_already_subscribed)
     }
 
     // pub fn exists(&self, statement: &str) -> Result<bool> {

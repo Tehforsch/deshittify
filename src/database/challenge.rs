@@ -1,6 +1,6 @@
 use crate::challenge_data::ChallengeData;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Challenge {
     pub id: i64,
     pub data: ChallengeData,
