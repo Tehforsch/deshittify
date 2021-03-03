@@ -1,4 +1,4 @@
-use crate::challenge_data::ChallengeData;
+use crate::database::challenge_data::ChallengeData;
 
 #[derive(Clone, Debug)]
 pub struct Challenge {

@@ -1,4 +1,6 @@
+use super::task_data::TaskData;
+
 struct Task {
     id: i64,
-    description: String,
+    data: TaskData,
 }

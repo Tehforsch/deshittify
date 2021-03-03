@@ -16,7 +16,8 @@ use teloxide::{types::CallbackQuery, utils::command::BotCommand};
 use tokio::join;
 
 use self::command::Command;
-use crate::{action::Action, challenge_data::ChallengeData, config, database::Database};
+use crate::database::{challenge_data::ChallengeData, task_data::TaskData};
+use crate::{action::Action, config, database::Database, time_frame::TimeFrame};
 use crate::{database::challenge::Challenge, response::Response};
 
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -59,8 +60,12 @@ pub async fn run_bot() -> Result<()> {
 }
 
 async fn reply_command(message: UpdateWithCx<Message>, command: Command) -> Result<()> {
-    let action = convert_message_to_action(&message, command)?;
-    let response = perform_action(&action)?;
+    let action = convert_message_to_action(&message, command);
+    let action =
+        action.unwrap_or_else(|err| Action::ErrorMessage(format!("Error: {}", err.to_string())));
+    let response = perform_action(&action);
+    let response =
+        response.unwrap_or_else(|err| Response::Reply(format!("Error: {}", err.to_string())));
     perform_reponse(&response, &message).await
 }
 
@@ -108,10 +113,27 @@ fn convert_callback_query_to_action(message: &UpdateWithCx<CallbackQuery>) -> Re
 fn convert_message_to_action(message: &UpdateWithCx<Message>, command: Command) -> Result<Action> {
     match command {
         Command::Help => Ok(Action::SendHelp),
-        Command::CreateNewChallenge { name } => {
-            Ok(Action::CreateNewChallenge(get_test_challenge(&name)))
+        Command::CreateNewChallenge { name, start, end } => {
+            Ok(Action::CreateNewChallenge(ChallengeData {
+                name,
+                time_frame: TimeFrame::new(start, end),
+            }))
         }
         Command::Test => Ok(Action::Test),
+        Command::AddTask {
+            challenge_name,
+            task_name,
+            count,
+            period,
+        } => Ok(Action::AddTask(
+            message.update.from().unwrap().id,
+            challenge_name,
+            TaskData {
+                name: task_name,
+                count,
+                period,
+            },
+        )),
     }
 }
 
@@ -130,8 +152,13 @@ fn perform_action(action: &Action) -> anyhow::Result<Response> {
                 Response::Nothing
             }
         }
+        Action::AddTask(user_id, challenge_name, task_data) => {
+            database.add_task(*user_id, challenge_name, task_data)?;
+            Response::Reply(format!("Task {} added. Kaclxokca!", task_data.name))
+        }
         Action::SendHelp => Response::SendHelp,
         Action::Test => Response::Test,
+        Action::ErrorMessage(message) => Response::Reply(message.to_string()),
     })
 }
 
@@ -189,13 +216,4 @@ async fn send_subscription_prompt(
         .await
         .context("");
     res
-}
-
-fn get_test_challenge(name: &str) -> ChallengeData {
-    let dt1 = Utc.ymd(2014, 7, 8).and_hms_milli(9, 10, 11, 12);
-    let dt2 = Utc.ymd(2015, 7, 8).and_hms_milli(9, 10, 11, 12);
-    ChallengeData {
-        name: name.to_string(),
-        time_frame: (dt1, dt2),
-    }
 }
