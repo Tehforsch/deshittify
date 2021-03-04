@@ -1,7 +1,7 @@
 pub mod command;
 pub mod response_handling;
 
-use anyhow::{Context, Result};
+use anyhow::{Result};
 use teloxide::types::CallbackQuery;
 use teloxide::{
     prelude::*,
@@ -14,7 +14,7 @@ use self::{
 };
 use crate::action_handling::perform_action;
 use crate::database::{challenge_data::ChallengeData, task_data::TaskData};
-use crate::response::Response;
+
 use crate::{action::Action, time_frame::TimeFrame};
 
 use std::sync::atomic::AtomicU64;
