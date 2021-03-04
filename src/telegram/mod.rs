@@ -1,4 +1,5 @@
 pub mod command;
+pub mod response_handling;
 
 use anyhow::{Context, Result};
 use teloxide::{
@@ -10,7 +11,7 @@ use teloxide::{
 };
 use teloxide::{types::CallbackQuery, utils::command::BotCommand};
 
-use self::command::Command;
+use self::{command::Command, response_handling::perform_response};
 use crate::action_handling::perform_action;
 use crate::database::{challenge_data::ChallengeData, task_data::TaskData};
 use crate::{action::Action, time_frame::TimeFrame};
@@ -59,7 +60,7 @@ async fn reply_command(message: UpdateWithCx<Message>, command: Command) -> Resu
     let action = convert_message_to_action(&message, command)
         .unwrap_or_else(|err| Action::ErrorMessage(format!("Error: {}", err.to_string())));
     let response = perform_action(&action);
-    perform_reponse(&response, &message).await
+    perform_response(&response, &message).await
 }
 
 async fn reply_callback_query(message: UpdateWithCx<CallbackQuery>) -> Result<()> {
@@ -139,47 +140,4 @@ fn convert_message_to_action(message: &UpdateWithCx<Message>, command: Command) 
         )),
         Command::DeshittifyMyDay => Ok(Action::SendTaskPoll),
     }
-}
-async fn perform_reponse(response: &Response, message: &UpdateWithCx<Message>) -> Result<()> {
-    match response {
-        Response::Reply(text) => {
-            message.answer(text).send().await?;
-        }
-        Response::SendHelp => {
-            message.answer(Command::descriptions()).send().await?;
-        }
-        Response::SubscriptionPrompt(challenge) => {
-            send_subscription_prompt(challenge, message).await?;
-        }
-        Response::TaskPolls(task_polls) => {
-            send_user_task_polls(task_polls)?;
-        }
-        Response::Nothing => {}
-    };
-    Ok(())
-}
-
-fn send_user_task_polls(task_polls: &crate::response::UserTaskData) -> Result<()> {
-    for (user, tasks) in task_polls.data.iter() {
-        dbg!(user, tasks);
-    }
-    Ok(())
-}
-
-async fn send_subscription_prompt(
-    challenge: &Challenge,
-    message: &UpdateWithCx<Message>,
-) -> Result<Message> {
-    let res = message
-        .answer(format!("Subscribe to {}", &challenge.data.name))
-        .reply_markup(ReplyMarkup::InlineKeyboardMarkup(
-            InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::new(
-                "Subscribe",
-                InlineKeyboardButtonKind::CallbackData(format!("{}", challenge.id)),
-            )]]),
-        ))
-        .send()
-        .await
-        .context("");
-    res
 }
