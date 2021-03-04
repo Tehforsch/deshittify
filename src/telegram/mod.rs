@@ -3,7 +3,7 @@ pub mod response_handling;
 
 use anyhow::Result;
 
-use teloxide::types::CallbackQuery;
+use teloxide::types::{CallbackQuery, Chat, Poll, PollAnswer};
 use teloxide::{
     prelude::*,
     types::{InlineKeyboardButtonKind, MessageKind},
@@ -51,6 +51,11 @@ pub async fn run_bot() -> Result<()> {
                 handle_callback_query(cx).await.log_on_error().await;
             })
         })
+        .polls_handler(move |rx: DispatcherHandlerRx<Poll>| {
+            rx.for_each(|cx| async move {
+                handle_poll(cx).await.log_on_error().await;
+            })
+        })
         .dispatch()
         .await;
 
@@ -71,6 +76,14 @@ async fn handle_callback_query(message: UpdateWithCx<CallbackQuery>) -> Result<(
     perform_reponse_to_callback_query(&response, &message).await
 }
 
+async fn handle_poll(message: UpdateWithCx<Poll>) -> Result<()> {
+    let action = convert_poll_to_action(&message)
+        .unwrap_or_else(|err| Action::ErrorMessage(format!("Error: {}", err.to_string())));
+    // let response = perform_action(&action);
+    // perform_reponse_to_poll_answer(&response, &message).await
+    todo!()
+}
+
 fn convert_callback_query_to_action(message: &UpdateWithCx<CallbackQuery>) -> Result<Action> {
     if let MessageKind::Common(x) = &message.update.message.as_ref().unwrap().kind {
         if let InlineKeyboardButtonKind::CallbackData(data) =
@@ -87,6 +100,11 @@ fn convert_callback_query_to_action(message: &UpdateWithCx<CallbackQuery>) -> Re
             ));
         }
     };
+    todo!()
+}
+
+fn convert_poll_to_action(message: &UpdateWithCx<Poll>) -> Result<Action> {
+    dbg!(message);
     todo!()
 }
 
@@ -113,10 +131,19 @@ fn convert_message_to_action(message: &UpdateWithCx<Message>, command: Command) 
                 period,
             },
         )),
-        Command::Signup => Ok(Action::SignupUser(
-            message.update.from().unwrap().id,
-            message.update.chat.id,
-        )),
+        Command::Signup => {
+            if message.update.chat.is_private() {
+                Ok(Action::SignupUser(
+                    message.update.from().unwrap().id,
+                    message.update.chat.id,
+                ))
+            } else {
+                Ok(Action::ErrorMessage(
+                    "You can't sign up in groups. Please sign up with @deshittify_bot directly."
+                        .to_owned(),
+                ))
+            }
+        }
         Command::DeshittifyMyDay => Ok(Action::SendTaskPoll),
     }
 }

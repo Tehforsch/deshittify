@@ -145,7 +145,7 @@ impl Database {
 
     pub fn get_all_user_tasks(&self) -> Result<UserTaskData> {
         let mut statement = self.connection.prepare(
-            "SELECT user.chat_id, task.name FROM user, task WHERE user.user_id = task.user_id ORDER BY user.chat_id",
+            "SELECT user.chat_id, task.name FROM user, task WHERE user.user_id = task.user_id GROUP BY user.chat_id, task.name ORDER BY user.chat_id, task.name",
         )?;
         let mb_chat_ids_with_task_names = statement.query_map(params![], |row| {
             Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
