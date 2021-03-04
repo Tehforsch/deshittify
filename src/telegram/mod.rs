@@ -58,16 +58,14 @@ pub async fn run_bot() -> Result<()> {
 async fn reply_command(message: UpdateWithCx<Message>, command: Command) -> Result<()> {
     let action = convert_message_to_action(&message, command)
         .unwrap_or_else(|err| Action::ErrorMessage(format!("Error: {}", err.to_string())));
-    let response = perform_action(&action)
-        .unwrap_or_else(|err| Response::Reply(format!("Error: {}", err.to_string())));
+    let response = perform_action(&action);
     perform_reponse(&response, &message).await
 }
 
 async fn reply_callback_query(message: UpdateWithCx<CallbackQuery>) -> Result<()> {
     let action = convert_callback_query_to_action(&message)
         .unwrap_or_else(|err| Action::ErrorMessage(format!("Error: {}", err.to_string())));
-    let response = perform_action(&action)
-        .unwrap_or_else(|err| Response::Reply(format!("Error: {}", err.to_string())));
+    let response = perform_action(&action);
     perform_reponse_to_callback_query(&response, &message).await
 }
 
@@ -78,16 +76,18 @@ async fn perform_reponse_to_callback_query(
     match response {
         Response::Reply(text) => {
             let chat_id = update.update.message.as_ref().unwrap().chat.id;
-            dbg!(chat_id, text);
-            update
-                .bot
-                .send_message(chat_id, text)
-                .send()
-                .await
-                .context("While sending reply")?;
+            send_text(&update.bot, chat_id, text).await?;
         }
         _ => {}
     }
+    Ok(())
+}
+
+async fn send_text(bot: &Bot, chat_id: i64, text: &str) -> Result<()> {
+    bot.send_message(chat_id, text)
+        .send()
+        .await
+        .context("While sending reply")?;
     Ok(())
 }
 

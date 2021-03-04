@@ -8,9 +8,9 @@ use crate::{
     response::Response,
 };
 
-pub fn perform_action(action: &Action) -> anyhow::Result<Response> {
+pub fn perform_action(action: &Action) -> Response {
     let database = Database::new(&Path::new(config::DEFAULT_DB_PATH));
-    match action {
+    let mb_response = match action {
         Action::CreateNewChallenge(challenge_data) => {
             create_new_challenge(&database, challenge_data)
         }
@@ -24,7 +24,8 @@ pub fn perform_action(action: &Action) -> anyhow::Result<Response> {
         Action::ErrorMessage(message_text) => reply(&message_text),
         Action::SendTaskPoll => send_task_polls(&database),
         Action::SendHelp => Ok(Response::SendHelp),
-    }
+    };
+    mb_response.unwrap_or_else(|err| Response::Reply(format!("Error: {}", err.to_string())))
 }
 
 fn send_task_polls(database: &Database) -> Result<Response> {
