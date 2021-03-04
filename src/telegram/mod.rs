@@ -13,7 +13,7 @@ use teloxide::{types::CallbackQuery, utils::command::BotCommand};
 use self::command::Command;
 use crate::action_handling::perform_action;
 use crate::database::{challenge_data::ChallengeData, task_data::TaskData};
-use crate::{action::Action, config, database::Database, time_frame::TimeFrame};
+use crate::{action::Action, time_frame::TimeFrame};
 use crate::{database::challenge::Challenge, response::Response};
 
 use std::sync::atomic::AtomicU64;
