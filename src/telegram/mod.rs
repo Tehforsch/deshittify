@@ -2,6 +2,8 @@ pub mod command;
 pub mod response_handling;
 
 use anyhow::{Context, Result};
+use teloxide::types::CallbackQuery;
+use teloxide::utils::command::BotCommand;
 use teloxide::{
     prelude::*,
     types::{
@@ -9,13 +11,12 @@ use teloxide::{
         ReplyMarkup,
     },
 };
-use teloxide::{types::CallbackQuery, utils::command::BotCommand};
 
 use self::{command::Command, response_handling::perform_response};
 use crate::action_handling::perform_action;
 use crate::database::{challenge_data::ChallengeData, task_data::TaskData};
+use crate::response::Response;
 use crate::{action::Action, time_frame::TimeFrame};
-use crate::{response::Response};
 
 use std::sync::atomic::AtomicU64;
 
