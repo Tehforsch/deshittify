@@ -8,7 +8,10 @@ use teloxide::{
     types::{InlineKeyboardButtonKind, MessageKind},
 };
 
-use self::{command::Command, response_handling::perform_response};
+use self::{
+    command::Command, response_handling::perform_reponse_to_callback_query,
+    response_handling::perform_response_to_command,
+};
 use crate::action_handling::perform_action;
 use crate::database::{challenge_data::ChallengeData, task_data::TaskData};
 use crate::response::Response;
@@ -39,12 +42,12 @@ pub async fn run_bot() -> Result<()> {
     Dispatcher::new(bot)
         .messages_handler(move |rx: DispatcherHandlerRx<Message>| {
             rx.commands(bot_name).for_each(|(cx, command)| async move {
-                reply_command(cx, command).await.log_on_error().await;
+                handle_command(cx, command).await.log_on_error().await;
             })
         })
         .callback_queries_handler(move |rx: DispatcherHandlerRx<CallbackQuery>| {
             rx.for_each(|cx| async move {
-                reply_callback_query(cx).await.log_on_error().await;
+                handle_callback_query(cx).await.log_on_error().await;
             })
         })
         .dispatch()
@@ -53,40 +56,18 @@ pub async fn run_bot() -> Result<()> {
     Ok(())
 }
 
-async fn reply_command(message: UpdateWithCx<Message>, command: Command) -> Result<()> {
+async fn handle_command(message: UpdateWithCx<Message>, command: Command) -> Result<()> {
     let action = convert_message_to_action(&message, command)
         .unwrap_or_else(|err| Action::ErrorMessage(format!("Error: {}", err.to_string())));
     let response = perform_action(&action);
-    perform_response(&response, &message).await
+    perform_response_to_command(&response, &message).await
 }
 
-async fn reply_callback_query(message: UpdateWithCx<CallbackQuery>) -> Result<()> {
+async fn handle_callback_query(message: UpdateWithCx<CallbackQuery>) -> Result<()> {
     let action = convert_callback_query_to_action(&message)
         .unwrap_or_else(|err| Action::ErrorMessage(format!("Error: {}", err.to_string())));
     let response = perform_action(&action);
     perform_reponse_to_callback_query(&response, &message).await
-}
-
-async fn perform_reponse_to_callback_query(
-    response: &Response,
-    update: &UpdateWithCx<CallbackQuery>,
-) -> Result<()> {
-    match response {
-        Response::Reply(text) => {
-            let chat_id = update.update.message.as_ref().unwrap().chat.id;
-            send_text(&update.bot, chat_id, text).await?;
-        }
-        _ => {}
-    }
-    Ok(())
-}
-
-async fn send_text(bot: &Bot, chat_id: i64, text: &str) -> Result<()> {
-    bot.send_message(chat_id, text)
-        .send()
-        .await
-        .context("While sending reply")?;
-    Ok(())
 }
 
 fn convert_callback_query_to_action(message: &UpdateWithCx<CallbackQuery>) -> Result<Action> {

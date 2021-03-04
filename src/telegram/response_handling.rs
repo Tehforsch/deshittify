@@ -1,16 +1,19 @@
 use anyhow::{Context, Result};
 
-use teloxide::prelude::*;
 use teloxide::types::{
     InlineKeyboardButton, InlineKeyboardButtonKind, InlineKeyboardMarkup, Message, ReplyMarkup,
 };
 use teloxide::utils::command::BotCommand;
+use teloxide::{prelude::*, types::CallbackQuery};
 
 use crate::{database::challenge::Challenge, response::Response};
 
 use super::command::Command;
 
-pub async fn perform_response(response: &Response, message: &UpdateWithCx<Message>) -> Result<()> {
+pub async fn perform_response_to_command(
+    response: &Response,
+    message: &UpdateWithCx<Message>,
+) -> Result<()> {
     match response {
         Response::Reply(text) => {
             message.answer(text).send().await?;
@@ -52,4 +55,26 @@ async fn send_subscription_prompt(
         .await
         .context("");
     res
+}
+
+pub async fn perform_reponse_to_callback_query(
+    response: &Response,
+    update: &UpdateWithCx<CallbackQuery>,
+) -> Result<()> {
+    match response {
+        Response::Reply(text) => {
+            let chat_id = update.update.message.as_ref().unwrap().chat.id;
+            send_text(&update.bot, chat_id, text).await?;
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+async fn send_text(bot: &Bot, chat_id: i64, text: &str) -> Result<()> {
+    bot.send_message(chat_id, text)
+        .send()
+        .await
+        .context("While sending reply")?;
+    Ok(())
 }
