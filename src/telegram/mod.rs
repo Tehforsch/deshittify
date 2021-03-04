@@ -60,18 +60,18 @@ pub async fn run_bot() -> Result<()> {
 }
 
 async fn reply_command(message: UpdateWithCx<Message>, command: Command) -> Result<()> {
-    let action = convert_message_to_action(&message, command);
-    let action =
-        action.unwrap_or_else(|err| Action::ErrorMessage(format!("Error: {}", err.to_string())));
-    let response = perform_action(&action);
-    let response =
-        response.unwrap_or_else(|err| Response::Reply(format!("Error: {}", err.to_string())));
+    let action = convert_message_to_action(&message, command)
+        .unwrap_or_else(|err| Action::ErrorMessage(format!("Error: {}", err.to_string())));
+    let response = perform_action(&action)
+        .unwrap_or_else(|err| Response::Reply(format!("Error: {}", err.to_string())));
     perform_reponse(&response, &message).await
 }
 
 async fn reply_callback_query(message: UpdateWithCx<CallbackQuery>) -> Result<()> {
-    let action = convert_callback_query_to_action(&message)?;
-    let response = perform_action(&action)?;
+    let action = convert_callback_query_to_action(&message)
+        .unwrap_or_else(|err| Action::ErrorMessage(format!("Error: {}", err.to_string())));
+    let response = perform_action(&action)
+        .unwrap_or_else(|err| Response::Reply(format!("Error: {}", err.to_string())));
     perform_reponse_to_callback_query(&response, &message).await
 }
 
@@ -119,7 +119,6 @@ fn convert_message_to_action(message: &UpdateWithCx<Message>, command: Command) 
                 time_frame: TimeFrame::new(start, end),
             }))
         }
-        Command::Test => Ok(Action::Test),
         Command::AddTask {
             challenge_name,
             task_name,
@@ -134,6 +133,11 @@ fn convert_message_to_action(message: &UpdateWithCx<Message>, command: Command) 
                 period,
             },
         )),
+        Command::Signup => Ok(Action::SignupUser(
+            message.update.from().unwrap().id,
+            message.update.chat.id,
+        )),
+        Command::DeshittifyMyDay => Ok(Action::SendTaskPoll),
     }
 }
 
@@ -157,8 +161,12 @@ fn perform_action(action: &Action) -> anyhow::Result<Response> {
             Response::Reply(format!("Task {} added. Kaclxokca!", task_data.name))
         }
         Action::SendHelp => Response::SendHelp,
-        Action::Test => Response::Test,
+        Action::SignupUser(user_id, chat_id) => {
+            database.signup_user(*user_id, *chat_id)?;
+            Response::Reply("Thanks. You signed up.".to_owned())
+        }
         Action::ErrorMessage(message) => Response::Reply(message.to_string()),
+        Action::SendTaskPoll => Response::TaskPolls(database.get_all_user_tasks()?),
     })
 }
 
@@ -174,30 +182,12 @@ async fn perform_reponse(response: &Response, message: &UpdateWithCx<Message>) -
             .send()
             .await
             .context("While sending help"),
-        Response::Test => test(response, message).await,
         Response::SubscriptionPrompt(challenge) => {
             send_subscription_prompt(challenge, message).await
         }
         Response::Nothing => return Ok(()),
     };
     result.map(|_| ())
-}
-
-async fn test(response: &Response, message: &UpdateWithCx<Message>) -> Result<Message> {
-    let res = message
-        .answer("DO YOU WANNA SUBSCRIBE TO MY PENIS?")
-        .reply_markup(ReplyMarkup::InlineKeyboardMarkup(
-            InlineKeyboardMarkup::new(vec![vec![InlineKeyboardButton::new(
-                "SUBSCRIBE ME TO YOUR PENIS SIR",
-                InlineKeyboardButtonKind::CallbackData("Subscribed".into()),
-            )]]),
-        ))
-        .send()
-        .await
-        .context("");
-    // let res = message.answer("").send().await.context("");
-    println!("ja lol hey");
-    res
 }
 
 async fn send_subscription_prompt(

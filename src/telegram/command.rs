@@ -22,6 +22,11 @@ pub enum Command {
         count: i32,
         period: Period,
     },
-    #[command(description = "Test the new hot shit", parse_with = "split")]
-    Test,
+    #[command(description = "Sign up for reminders", parse_with = "split")]
+    Signup,
+    #[command(
+        description = "Deshittify the day by asking me all the stuff i havent actually done yet",
+        parse_with = "split"
+    )]
+    DeshittifyMyDay,
 }

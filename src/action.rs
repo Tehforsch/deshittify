@@ -6,6 +6,7 @@ pub enum Action {
     CreateNewChallenge(ChallengeData),
     SubscribeChallenge(i32, i32, String),
     SendHelp,
-    Test,
+    SignupUser(i32, i64),
     ErrorMessage(String),
+    SendTaskPoll,
 }
