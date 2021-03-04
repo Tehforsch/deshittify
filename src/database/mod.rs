@@ -53,8 +53,8 @@ impl Database {
 
     pub fn check_user_subscribed_to_challenge(
         &self,
-        user_id: i32,
-        challenge_id: i32,
+        user_id: &i32,
+        challenge_id: &i32,
     ) -> Result<bool> {
         let mut statement = self.connection.prepare(
             "SELECT user_id FROM userChallenge WHERE user_id = ?1 AND challenge_id = ?2",
@@ -64,18 +64,18 @@ impl Database {
             .context("")
     }
 
-    pub fn check_user_signed_up(&self, user_id: i32) -> Result<bool> {
+    pub fn check_user_signed_up(&self, user_id: &i32) -> Result<bool> {
         let mut statement = self
             .connection
             .prepare("SELECT user_id FROM user WHERE user_id = ?1")?;
         statement.exists(params![user_id,]).context("")
     }
 
-    pub fn get_challenge_id_from_name(&self, challenge_name: &str) -> Result<i32> {
+    pub fn get_challenge_id_from_name(&self, _challenge_name: &str) -> Result<i32> {
         todo!()
     }
 
-    pub fn subscribe_to_challenge(&self, user_id: i32, challenge_id: i32) -> Result<bool> {
+    pub fn subscribe_to_challenge(&self, user_id: &i32, challenge_id: &i32) -> Result<bool> {
         let user_already_signed_up = self.check_user_signed_up(user_id)?;
         if !user_already_signed_up {
             return Err(anyhow!(
@@ -93,7 +93,7 @@ impl Database {
         Ok(user_already_subscribed)
     }
 
-    pub fn signup_user(&self, user_id: i32, chat_id: i64) -> Result<()> {
+    pub fn signup_user(&self, user_id: &i32, chat_id: &i64) -> Result<()> {
         self.connection
             .execute(
                 "INSERT INTO user (user_id, chat_id) VALUES (?1, ?2)",
@@ -103,7 +103,12 @@ impl Database {
             .map(|_| ())
     }
 
-    pub fn add_task(&self, user_id: i32, challenge_name: &str, task_data: &TaskData) -> Result<()> {
+    pub fn add_task(
+        &self,
+        user_id: &i32,
+        challenge_name: &str,
+        task_data: &TaskData,
+    ) -> Result<()> {
         let challenge_id = self.get_challenge_id_by_user_id_and_name(user_id, challenge_name)?;
         self.connection.execute(
             "INSERT INTO task (user_id, challenge_id, name, count, period) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -120,7 +125,7 @@ impl Database {
 
     fn get_challenge_id_by_user_id_and_name(
         &self,
-        user_id: i32,
+        user_id: &i32,
         challenge_name: &str,
     ) -> Result<i32> {
         let today = Local::today().to_string();

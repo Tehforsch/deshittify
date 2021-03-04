@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Error};
+use anyhow::anyhow;
 use std::str::FromStr;
 
 #[derive(Debug)]

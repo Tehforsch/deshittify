@@ -1,7 +1,6 @@
 pub mod command;
 
 use anyhow::{Context, Result};
-use std::path::Path;
 use teloxide::{
     prelude::*,
     types::{
@@ -12,6 +11,7 @@ use teloxide::{
 use teloxide::{types::CallbackQuery, utils::command::BotCommand};
 
 use self::command::Command;
+use crate::action_handling::perform_action;
 use crate::database::{challenge_data::ChallengeData, task_data::TaskData};
 use crate::{action::Action, config, database::Database, time_frame::TimeFrame};
 use crate::{database::challenge::Challenge, response::Response};
@@ -100,7 +100,11 @@ fn convert_callback_query_to_action(message: &UpdateWithCx<CallbackQuery>) -> Re
             let user_id = message.update.from.id;
             // let user_name = "asd".to_owned();
             let user_name = message.update.from.first_name.clone();
-            return Ok(Action::SubscribeChallenge(user_id, challenge_id, user_name));
+            return Ok(Action::SubscribeToChallenge(
+                user_id,
+                challenge_id,
+                user_name,
+            ));
         }
     };
     todo!()
@@ -136,36 +140,6 @@ fn convert_message_to_action(message: &UpdateWithCx<Message>, command: Command) 
         Command::DeshittifyMyDay => Ok(Action::SendTaskPoll),
     }
 }
-
-fn perform_action(action: &Action) -> anyhow::Result<Response> {
-    let database = Database::new(&Path::new(config::DEFAULT_DB_PATH));
-    Ok(match action {
-        Action::CreateNewChallenge(challenge_data) => {
-            let challenge = database.add_challenge(challenge_data)?;
-            Response::SubscriptionPrompt(challenge)
-        }
-        Action::SubscribeChallenge(user_id, challenge_id, user_name) => {
-            let already_subscribed = database.subscribe_to_challenge(*user_id, *challenge_id)?;
-            if !already_subscribed {
-                Response::Reply(format!("{} accepted the challenge! Kaclxokca!", user_name))
-            } else {
-                Response::Nothing
-            }
-        }
-        Action::AddTask(user_id, challenge_name, task_data) => {
-            database.add_task(*user_id, challenge_name, task_data)?;
-            Response::Reply(format!("Task {} added. Kaclxokca!", task_data.name))
-        }
-        Action::SendHelp => Response::SendHelp,
-        Action::SignupUser(user_id, chat_id) => {
-            database.signup_user(*user_id, *chat_id)?;
-            Response::Reply("Thanks. You signed up.".to_owned())
-        }
-        Action::ErrorMessage(message) => Response::Reply(message.to_string()),
-        Action::SendTaskPoll => Response::TaskPolls(database.get_all_user_tasks()?),
-    })
-}
-
 async fn perform_reponse(response: &Response, message: &UpdateWithCx<Message>) -> Result<()> {
     match response {
         Response::Reply(text) => {
