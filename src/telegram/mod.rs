@@ -3,13 +3,9 @@ pub mod response_handling;
 
 use anyhow::{Context, Result};
 use teloxide::types::CallbackQuery;
-use teloxide::utils::command::BotCommand;
 use teloxide::{
     prelude::*,
-    types::{
-        InlineKeyboardButton, InlineKeyboardButtonKind, InlineKeyboardMarkup, MessageKind,
-        ReplyMarkup,
-    },
+    types::{InlineKeyboardButtonKind, MessageKind},
 };
 
 use self::{command::Command, response_handling::perform_response};
