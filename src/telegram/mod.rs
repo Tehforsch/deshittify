@@ -2,7 +2,7 @@ pub mod command;
 pub mod response_handling;
 
 use anyhow::Result;
-use anyhow::Context;
+
 use teloxide::types::CallbackQuery;
 use teloxide::{
     prelude::*,
