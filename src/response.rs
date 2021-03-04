@@ -1,5 +1,4 @@
 use crate::database::challenge::Challenge;
-use crate::database::task::Task;
 
 #[derive(Debug)]
 pub enum Response {
@@ -12,5 +11,5 @@ pub enum Response {
 
 #[derive(Debug)]
 pub struct UserTaskData {
-    data: Vec<(i64, Vec<String>)>,
+    pub data: Vec<(i64, Vec<String>)>,
 }

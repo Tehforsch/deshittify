@@ -5,8 +5,9 @@ pub mod task;
 pub mod task_data;
 
 use anyhow::{anyhow, Context, Result};
-use chrono::{Local, NaiveDate};
-use rusqlite::{params, Connection, NO_PARAMS};
+use chrono::Local;
+use itertools::Itertools;
+use rusqlite::{params, Connection};
 use std::path::Path;
 
 use crate::response::UserTaskData;
@@ -141,33 +142,17 @@ impl Database {
         let mut statement = self.connection.prepare(
             "SELECT user.chat_id, task.name FROM user, task WHERE user.user_id = task.user_id ORDER BY user.chat_id",
         )?;
-        let chat_ids_with_task_names = statement.query_map(params![], |row| {
-            Ok(ChatIdWithTaskName {
-                chat_id: row.get(0)?,
-                name: row.get(1)?,
-            })
+        let mb_chat_ids_with_task_names = statement.query_map(params![], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
         })?;
-        let mut list_of_chat_ids_with_tasks: Vec<(i64, Vec<String>)> = vec![];
-        for item in chat_ids_with_task_names {
-            let item = item?;
-            if list_of_chat_ids_with_tasks.len() == 0
-                || item.chat_id != list_of_chat_ids_with_tasks.last().unwrap().0
-            {
-                list_of_chat_ids_with_tasks.push((item.chat_id, vec![]))
-            }
-            list_of_chat_ids_with_tasks
-                .last()
-                .unwrap()
-                .1
-                .push(item.name);
+        let chat_ids_with_task_names: Vec<(i64, String)> =
+            mb_chat_ids_with_task_names.collect::<rusqlite::Result<Vec<(i64, String)>>>()?;
+        let mut data_grouped = UserTaskData { data: vec![] };
+        for (key, group) in &chat_ids_with_task_names.into_iter().group_by(|(id, _)| *id) {
+            data_grouped
+                .data
+                .push((key, group.map(|(_, name)| name).collect()));
         }
-        Ok(UserTaskData {
-            data: list_of_chat_ids_with_tasks,
-        })
+        Ok(data_grouped)
     }
-}
-
-struct ChatIdWithTaskName {
-    chat_id: i64,
-    name: String,
 }

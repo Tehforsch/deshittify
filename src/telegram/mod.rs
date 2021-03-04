@@ -1,26 +1,22 @@
 pub mod command;
 
-use anyhow::{anyhow, Context, Result};
-use chrono::prelude::*;
-use chrono::Utc;
+use anyhow::{Context, Result};
 use std::path::Path;
 use teloxide::{
     prelude::*,
-    requests::SendMessage,
     types::{
         InlineKeyboardButton, InlineKeyboardButtonKind, InlineKeyboardMarkup, MessageKind,
         ReplyMarkup,
     },
 };
 use teloxide::{types::CallbackQuery, utils::command::BotCommand};
-use tokio::join;
 
 use self::command::Command;
 use crate::database::{challenge_data::ChallengeData, task_data::TaskData};
 use crate::{action::Action, config, database::Database, time_frame::TimeFrame};
 use crate::{database::challenge::Challenge, response::Response};
 
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::AtomicU64;
 
 use lazy_static::lazy_static;
 
@@ -171,23 +167,29 @@ fn perform_action(action: &Action) -> anyhow::Result<Response> {
 }
 
 async fn perform_reponse(response: &Response, message: &UpdateWithCx<Message>) -> Result<()> {
-    let result = match response {
-        Response::Reply(text) => message
-            .answer(text)
-            .send()
-            .await
-            .context("While sending reply"),
-        Response::SendHelp => message
-            .answer(Command::descriptions())
-            .send()
-            .await
-            .context("While sending help"),
-        Response::SubscriptionPrompt(challenge) => {
-            send_subscription_prompt(challenge, message).await
+    match response {
+        Response::Reply(text) => {
+            message.answer(text).send().await?;
         }
-        Response::Nothing => return Ok(()),
+        Response::SendHelp => {
+            message.answer(Command::descriptions()).send().await?;
+        }
+        Response::SubscriptionPrompt(challenge) => {
+            send_subscription_prompt(challenge, message).await?;
+        }
+        Response::TaskPolls(task_polls) => {
+            send_user_task_polls(task_polls)?;
+        }
+        Response::Nothing => {}
     };
-    result.map(|_| ())
+    Ok(())
+}
+
+fn send_user_task_polls(task_polls: &crate::response::UserTaskData) -> Result<()> {
+    for (user, tasks) in task_polls.data.iter() {
+        dbg!(user, tasks);
+    }
+    Ok(())
 }
 
 async fn send_subscription_prompt(
