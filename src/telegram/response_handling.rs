@@ -4,7 +4,7 @@ use teloxide::prelude::*;
 use teloxide::types::{
     InlineKeyboardButton, InlineKeyboardButtonKind, InlineKeyboardMarkup, Message, ReplyMarkup,
 };
-use teloxide::{types::CallbackQuery, utils::command::BotCommand};
+use teloxide::{utils::command::BotCommand};
 
 use crate::{database::challenge::Challenge, response::Response};
 

@@ -15,7 +15,7 @@ use self::{command::Command, response_handling::perform_response};
 use crate::action_handling::perform_action;
 use crate::database::{challenge_data::ChallengeData, task_data::TaskData};
 use crate::{action::Action, time_frame::TimeFrame};
-use crate::{database::challenge::Challenge, response::Response};
+use crate::{response::Response};
 
 use std::sync::atomic::AtomicU64;
 
