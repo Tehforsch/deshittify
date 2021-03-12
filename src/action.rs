@@ -1,3 +1,5 @@
+use chrono::NaiveDate;
+
 use crate::database::{challenge_data::ChallengeData, task_data::TaskData};
 
 #[derive(Debug)]
@@ -9,4 +11,15 @@ pub enum Action {
     SignupUser(i32, i64),
     ErrorMessage(String),
     SendTaskPoll,
+    ModifyUserTaskTimestamps(String, Vec<i32>),
+    WritePollInfo(Vec<UserPollDateInfo>),
+}
+
+#[derive(Debug)]
+pub struct UserPollDateInfo {
+    pub user_id: i32,
+    pub date: NaiveDate,
+    pub task_id: String,
+    pub poll_id: String,
+    pub task_index: i32,
 }

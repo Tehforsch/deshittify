@@ -5,12 +5,16 @@ pub mod task;
 pub mod task_data;
 
 use anyhow::{anyhow, Context, Result};
-use chrono::Local;
+use chrono::{Local, NaiveDate};
 use itertools::Itertools;
 use rusqlite::{params, Connection};
 use std::path::Path;
+use teloxide::types::PollOption;
 
-use crate::response::UserTaskData;
+use crate::{
+    action::UserPollDateInfo,
+    response::{PollData, UserTaskData},
+};
 
 use self::challenge_data::ChallengeData;
 use self::{challenge::Challenge, task_data::TaskData};
@@ -145,19 +149,68 @@ impl Database {
 
     pub fn get_all_user_tasks(&self) -> Result<UserTaskData> {
         let mut statement = self.connection.prepare(
-            "SELECT user.chat_id, task.name FROM user, task WHERE user.user_id = task.user_id GROUP BY user.chat_id, task.name ORDER BY user.chat_id, task.name",
+            "SELECT user.user_id, user.chat_id, task.name FROM user, task WHERE user.user_id = task.user_id GROUP BY user.chat_id, task.name ORDER BY user.chat_id, task.name",
         )?;
         let mb_chat_ids_with_task_names = statement.query_map(params![], |row| {
-            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+            Ok((
+                row.get::<_, i32>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, String>(2)?,
+            ))
         })?;
-        let chat_ids_with_task_names: Vec<(i64, String)> =
-            mb_chat_ids_with_task_names.collect::<rusqlite::Result<Vec<(i64, String)>>>()?;
+        let chat_ids_with_task_names: Vec<(i32, i64, String)> =
+            mb_chat_ids_with_task_names.collect::<rusqlite::Result<Vec<(i32, i64, String)>>>()?;
         let mut data_grouped = UserTaskData { data: vec![] };
-        for (key, group) in &chat_ids_with_task_names.into_iter().group_by(|(id, _)| *id) {
-            data_grouped
-                .data
-                .push((key, group.map(|(_, name)| name).collect()));
+        for (key, group) in &chat_ids_with_task_names
+            .into_iter()
+            .group_by(|(user_id, chat_id, _)| (*user_id, *chat_id))
+        {
+            data_grouped.data.push(PollData {
+                chat_id: key.1,
+                task_names: group.map(|(_, _, name)| name).collect(),
+                user_id: key.0,
+            });
         }
         Ok(data_grouped)
+    }
+
+    pub fn modify_user_task_entries(&self, poll_id: &str, option_ids: &Vec<i32>) -> Result<()> {
+        // Set everything to done=false first, because we're lazy af
+        self.connection.execute(
+            "UPDATE userPollDate SET done = 0 WHERE poll_id = ?1",
+            params![poll_id],
+        )?;
+        // Set some of them to done now, because we're awesome
+        for index in option_ids.iter() {
+            self.connection.execute(
+                "UPDATE userPollDate SET done = ?1 WHERE poll_id = ?2 AND task_index = ?3",
+                params![1, poll_id, index],
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn write_poll_info(&self, info: &Vec<UserPollDateInfo>) -> Result<()> {
+        for user_poll_date_info in info.iter() {
+            self.connection.execute(
+                "INSERT INTO userPollDate (date, user_id, poll_id, task_id, task_index, done) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![user_poll_date_info.date, user_poll_date_info.user_id, user_poll_date_info.poll_id, user_poll_date_info.task_id, user_poll_date_info.task_index, 0]
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn get_date_from_poll_id(&self, poll_id: &str) -> Result<NaiveDate> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT date FROM pollDate WHERE poll_id = ?1")?;
+        let result: rusqlite::Result<NaiveDate> = statement
+            .query_map(params![poll_id,], |row| row.get::<_, NaiveDate>(0))?
+            .next()
+            .ok_or(anyhow!(
+                "The poll with id {} is not in the userPoll database",
+                poll_id
+            ))?;
+        result.context("")
     }
 }

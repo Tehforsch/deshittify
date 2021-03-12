@@ -11,5 +11,12 @@ pub enum Response {
 
 #[derive(Debug)]
 pub struct UserTaskData {
-    pub data: Vec<(i64, Vec<String>)>,
+    pub data: Vec<PollData>,
+}
+
+#[derive(Debug)]
+pub struct PollData {
+    pub chat_id: i64,
+    pub user_id: i32,
+    pub task_names: Vec<String>,
 }

@@ -1,7 +1,10 @@
 use anyhow::{Context, Result};
 
-use teloxide::utils::command::BotCommand;
-use teloxide::{prelude::*, types::CallbackQuery};
+use chrono::{Local, NaiveDate, NaiveDateTime};
+use teloxide::{
+    prelude::*,
+    types::{CallbackQuery, MediaKind, MessageKind, PollAnswer},
+};
 use teloxide::{
     requests::SendPoll,
     types::{
@@ -9,15 +12,20 @@ use teloxide::{
         ReplyMarkup,
     },
 };
+use teloxide::{types::Poll, utils::command::BotCommand};
 
-use crate::{database::challenge::Challenge, response::Response};
+use crate::{
+    action::{Action, UserPollDateInfo},
+    database::challenge::Challenge,
+    response::Response,
+};
 
 use super::command::Command;
 
 pub async fn perform_response_to_command(
     response: &Response,
     message: &UpdateWithCx<Message>,
-) -> Result<()> {
+) -> Result<Option<Action>> {
     match response {
         Response::Reply(text) => {
             message.answer(text).send().await?;
@@ -29,21 +37,49 @@ pub async fn perform_response_to_command(
             send_subscription_prompt(challenge, message).await?;
         }
         Response::TaskPolls(task_polls) => {
-            send_user_task_polls(&message.bot, task_polls).await?;
+            return Ok(Some(send_user_task_polls(&message.bot, task_polls).await?));
         }
         Response::Nothing => {}
     };
-    Ok(())
+    Ok(None)
 }
 
-async fn send_user_task_polls(bot: &Bot, task_polls: &crate::response::UserTaskData) -> Result<()> {
-    for (chat_id, tasks) in task_polls.data.iter() {
-        bot.send_poll(*chat_id, "Which tasks did you do today?", tasks.clone())
+async fn send_user_task_polls(
+    bot: &Bot,
+    task_polls: &crate::response::UserTaskData,
+) -> Result<Action> {
+    let mut user_poll_date_infos = vec![];
+    for poll_data in task_polls.data.iter() {
+        let send_poll = bot
+            .send_poll(
+                poll_data.chat_id,
+                "Which tasks did you do today?",
+                poll_data.task_names.clone(),
+            )
             .allows_multiple_answers(true)
+            .is_anonymous(false)
             .send()
             .await?;
+        for (i, task) in poll_data.task_names.iter().enumerate() {
+            user_poll_date_infos.push(UserPollDateInfo {
+                user_id: poll_data.user_id,
+                date: Local::today().naive_local(),
+                poll_id: get_poll_id(&send_poll),
+                task_id: task.clone(),
+                task_index: i as i32,
+            });
+        }
     }
-    Ok(())
+    Ok(Action::WritePollInfo(user_poll_date_infos))
+}
+
+pub fn get_poll_id(send_poll: &Message) -> String {
+    if let MessageKind::Common(ref x) = send_poll.kind {
+        if let MediaKind::Poll(ref y) = x.media_kind {
+            return y.poll.id.clone();
+        }
+    }
+    unimplemented!()
 }
 
 async fn send_subscription_prompt(
@@ -83,5 +119,16 @@ async fn send_text(bot: &Bot, chat_id: &i64, text: &str) -> Result<()> {
         .send()
         .await
         .context("While sending reply")?;
+    Ok(())
+}
+
+pub async fn perform_reponse_to_poll_answer(
+    response: &crate::response::Response,
+    message: &UpdateWithCx<PollAnswer>,
+) -> Result<()> {
+    match response {
+        Response::Nothing => {}
+        _ => assert!(false),
+    }
     Ok(())
 }

@@ -1,8 +1,10 @@
 use anyhow::Result;
+use chrono::NaiveDate;
 use std::path::Path;
+use teloxide::types::PollOption;
 
 use crate::{
-    action::Action,
+    action::{Action, UserPollDateInfo},
     config,
     database::{challenge_data::ChallengeData, task_data::TaskData, Database},
     response::Response,
@@ -24,8 +26,26 @@ pub fn perform_action(action: &Action) -> Response {
         Action::ErrorMessage(message_text) => reply(&message_text),
         Action::SendTaskPoll => send_task_polls(&database),
         Action::SendHelp => Ok(Response::SendHelp),
+        Action::ModifyUserTaskTimestamps(poll_id, option_ids) => {
+            modify_user_task_timestamps(&database, poll_id, option_ids)
+        }
+        Action::WritePollInfo(info) => write_poll_info(&database, info),
     };
     mb_response.unwrap_or_else(|err| Response::Reply(format!("Error: {}", err.to_string())))
+}
+
+fn write_poll_info(database: &Database, info: &Vec<UserPollDateInfo>) -> Result<Response> {
+    database.write_poll_info(info)?;
+    Ok(Response::Nothing)
+}
+
+fn modify_user_task_timestamps(
+    database: &Database,
+    poll_id: &str,
+    poll_option_ids: &Vec<i32>,
+) -> Result<Response> {
+    database.modify_user_task_entries(poll_id, poll_option_ids)?;
+    Ok(Response::Nothing)
 }
 
 fn send_task_polls(database: &Database) -> Result<Response> {

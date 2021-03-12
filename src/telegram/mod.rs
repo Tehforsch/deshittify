@@ -1,8 +1,9 @@
 pub mod command;
 pub mod response_handling;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
+use chrono::NaiveDate;
 use teloxide::types::{CallbackQuery, Chat, Poll, PollAnswer};
 use teloxide::{
     prelude::*,
@@ -10,8 +11,9 @@ use teloxide::{
 };
 
 use self::{
-    command::Command, response_handling::perform_reponse_to_callback_query,
-    response_handling::perform_response_to_command,
+    command::Command,
+    response_handling::perform_reponse_to_callback_query,
+    response_handling::{perform_reponse_to_poll_answer, perform_response_to_command},
 };
 use crate::action_handling::perform_action;
 use crate::database::{challenge_data::ChallengeData, task_data::TaskData};
@@ -51,7 +53,7 @@ pub async fn run_bot() -> Result<()> {
                 handle_callback_query(cx).await.log_on_error().await;
             })
         })
-        .polls_handler(move |rx: DispatcherHandlerRx<Poll>| {
+        .poll_answers_handler(move |rx: DispatcherHandlerRx<PollAnswer>| {
             rx.for_each(|cx| async move {
                 handle_poll(cx).await.log_on_error().await;
             })
@@ -66,7 +68,11 @@ async fn handle_command(message: UpdateWithCx<Message>, command: Command) -> Res
     let action = convert_message_to_action(&message, command)
         .unwrap_or_else(|err| Action::ErrorMessage(format!("Error: {}", err.to_string())));
     let response = perform_action(&action);
-    perform_response_to_command(&response, &message).await
+    let maybe_action = perform_response_to_command(&response, &message).await?;
+    if let Some(new_action) = maybe_action {
+        perform_action(&new_action);
+    }
+    Ok(())
 }
 
 async fn handle_callback_query(message: UpdateWithCx<CallbackQuery>) -> Result<()> {
@@ -76,12 +82,11 @@ async fn handle_callback_query(message: UpdateWithCx<CallbackQuery>) -> Result<(
     perform_reponse_to_callback_query(&response, &message).await
 }
 
-async fn handle_poll(message: UpdateWithCx<Poll>) -> Result<()> {
+async fn handle_poll(message: UpdateWithCx<PollAnswer>) -> Result<()> {
     let action = convert_poll_to_action(&message)
         .unwrap_or_else(|err| Action::ErrorMessage(format!("Error: {}", err.to_string())));
-    // let response = perform_action(&action);
-    // perform_reponse_to_poll_answer(&response, &message).await
-    todo!()
+    let response = perform_action(&action);
+    perform_reponse_to_poll_answer(&response, &message).await
 }
 
 fn convert_callback_query_to_action(message: &UpdateWithCx<CallbackQuery>) -> Result<Action> {
@@ -100,12 +105,16 @@ fn convert_callback_query_to_action(message: &UpdateWithCx<CallbackQuery>) -> Re
             ));
         }
     };
-    todo!()
+    unimplemented!()
 }
 
-fn convert_poll_to_action(message: &UpdateWithCx<Poll>) -> Result<Action> {
-    dbg!(message);
-    todo!()
+fn convert_poll_to_action(message: &UpdateWithCx<PollAnswer>) -> Result<Action> {
+    let poll_id = &message.update.poll_id;
+    let poll_options = message.update.option_ids.clone();
+    Ok(Action::ModifyUserTaskTimestamps(
+        poll_id.clone(),
+        poll_options,
+    ))
 }
 
 fn convert_message_to_action(message: &UpdateWithCx<Message>, command: Command) -> Result<Action> {
