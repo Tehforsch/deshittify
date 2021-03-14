@@ -1,10 +1,10 @@
 pub mod command;
 pub mod response_handling;
 
-use anyhow::{Context, Result};
+use anyhow::{Result};
 
-use chrono::NaiveDate;
-use teloxide::types::{CallbackQuery, Chat, Poll, PollAnswer};
+
+use teloxide::types::{CallbackQuery, PollAnswer};
 use teloxide::{
     prelude::*,
     types::{InlineKeyboardButtonKind, MessageKind},
@@ -25,7 +25,7 @@ use crate::{
 
 use crate::{action::Action, time_frame::TimeFrame};
 
-use std::{sync::atomic::AtomicU64, thread};
+use std::{sync::atomic::AtomicU64};
 
 use lazy_static::lazy_static;
 use tokio::{

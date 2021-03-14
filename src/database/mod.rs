@@ -5,11 +5,11 @@ pub mod task;
 pub mod task_data;
 
 use anyhow::{anyhow, Context, Result};
-use chrono::{Duration, Local, NaiveDate, NaiveTime};
+use chrono::{Local, NaiveDate, NaiveTime};
 use itertools::Itertools;
 use rusqlite::{params, Connection};
 use std::path::Path;
-use teloxide::types::PollOption;
+
 
 use crate::{
     action::UserPollDateInfo,

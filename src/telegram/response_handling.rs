@@ -1,18 +1,14 @@
 use anyhow::{Context, Result};
 
-use chrono::{Local, NaiveDate, NaiveDateTime};
+use chrono::Local;
+use teloxide::types::{
+    InlineKeyboardButton, InlineKeyboardButtonKind, InlineKeyboardMarkup, Message, ReplyMarkup,
+};
+use teloxide::utils::command::BotCommand;
 use teloxide::{
     prelude::*,
     types::{CallbackQuery, MediaKind, MessageKind, PollAnswer},
 };
-use teloxide::{
-    requests::SendPoll,
-    types::{
-        ChatId, InlineKeyboardButton, InlineKeyboardButtonKind, InlineKeyboardMarkup, Message,
-        ReplyMarkup,
-    },
-};
-use teloxide::{types::Poll, utils::command::BotCommand};
 
 use crate::{
     action::{Action, UserPollDateInfo},
@@ -124,7 +120,7 @@ async fn send_text(bot: &Bot, chat_id: &i64, text: &str) -> Result<()> {
 
 pub async fn perform_reponse_to_poll_answer(
     response: &crate::response::Response,
-    message: &UpdateWithCx<PollAnswer>,
+    _message: &UpdateWithCx<PollAnswer>,
 ) -> Result<()> {
     match response {
         Response::Nothing => {}
