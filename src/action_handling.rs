@@ -24,12 +24,13 @@ pub fn perform_action(action: &Action) -> Response {
         }
         Action::SignupUser(user_id, chat_id) => signup_user(&database, user_id, chat_id),
         Action::ErrorMessage(message_text) => reply(&message_text),
-        Action::SendTaskPoll => send_task_polls(&database),
+        Action::CheckDateMaybeSendPolls => send_task_polls(&database),
         Action::SendHelp => Ok(Response::SendHelp),
         Action::ModifyUserTaskTimestamps(poll_id, option_ids) => {
             modify_user_task_timestamps(&database, poll_id, option_ids)
         }
         Action::WritePollInfo(info) => write_poll_info(&database, info),
+        Action::Nothing => Ok(Response::Nothing),
     };
     mb_response.unwrap_or_else(|err| Response::Reply(format!("Error: {}", err.to_string())))
 }
@@ -49,7 +50,9 @@ fn modify_user_task_timestamps(
 }
 
 fn send_task_polls(database: &Database) -> Result<Response> {
-    Ok(Response::TaskPolls(database.get_all_user_tasks()?))
+    Ok(Response::TaskPolls(
+        database.check_date_and_get_all_user_tasks()?,
+    ))
 }
 
 fn reply(message_text: &str) -> Result<Response> {

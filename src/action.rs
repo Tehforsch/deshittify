@@ -10,9 +10,10 @@ pub enum Action {
     SendHelp,
     SignupUser(i32, i64),
     ErrorMessage(String),
-    SendTaskPoll,
+    CheckDateMaybeSendPolls,
     ModifyUserTaskTimestamps(String, Vec<i32>),
     WritePollInfo(Vec<UserPollDateInfo>),
+    Nothing,
 }
 
 #[derive(Debug)]

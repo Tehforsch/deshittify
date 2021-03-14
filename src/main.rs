@@ -1,5 +1,5 @@
+use crate::telegram::run_bot;
 use anyhow::Result;
-use telegram::run_bot;
 
 pub mod action;
 pub mod action_handling;

@@ -44,7 +44,7 @@ pub async fn perform_response_to_command(
     Ok(None)
 }
 
-async fn send_user_task_polls(
+pub async fn send_user_task_polls(
     bot: &Bot,
     task_polls: &crate::response::UserTaskData,
 ) -> Result<Action> {

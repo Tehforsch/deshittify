@@ -13,16 +13,25 @@ use teloxide::{
 use self::{
     command::Command,
     response_handling::perform_reponse_to_callback_query,
-    response_handling::{perform_reponse_to_poll_answer, perform_response_to_command},
+    response_handling::{
+        perform_reponse_to_poll_answer, perform_response_to_command, send_user_task_polls,
+    },
 };
-use crate::action_handling::perform_action;
-use crate::database::{challenge_data::ChallengeData, task_data::TaskData};
+use crate::{action_handling::perform_action, config};
+use crate::{
+    database::{challenge_data::ChallengeData, task_data::TaskData},
+    response::Response,
+};
 
 use crate::{action::Action, time_frame::TimeFrame};
 
-use std::sync::atomic::AtomicU64;
+use std::{sync::atomic::AtomicU64, thread};
 
 use lazy_static::lazy_static;
+use tokio::{
+    join,
+    time::{delay_for, Duration},
+};
 
 lazy_static! {
     static ref MESSAGES_TOTAL: AtomicU64 = AtomicU64::new(0);
@@ -36,15 +45,12 @@ pub async fn run_bot() -> Result<()> {
     let bot = Bot::from_env();
     let bot_name = "deshittify";
 
-    // let message_future = teloxide::repl(bot.clone(), |message| async move {
-    //     dbg!(&message);
-    //     message.answer_dice().send().await?;
-    //     ResponseResult::<()>::Ok(())
-    // });
-    // teloxide::commands_repl(bot, bot_name, reply_command);
-    Dispatcher::new(bot)
+    let reminder_sender = deshittify_my_life(Bot::from_env());
+
+    let dispatcher = Dispatcher::new(bot)
         .messages_handler(move |rx: DispatcherHandlerRx<Message>| {
             rx.commands(bot_name).for_each(|(cx, command)| async move {
+                dbg!("Dispatch 1");
                 handle_command(cx, command).await.log_on_error().await;
             })
         })
@@ -57,11 +63,27 @@ pub async fn run_bot() -> Result<()> {
             rx.for_each(|cx| async move {
                 handle_poll(cx).await.log_on_error().await;
             })
-        })
-        .dispatch()
-        .await;
+        });
+    let handler = dispatcher.dispatch();
+
+    let (res1, _) = join!(reminder_sender, handler);
+    res1?;
 
     Ok(())
+}
+
+async fn deshittify_my_life(bot: Bot) -> Result<()> {
+    loop {
+        // bot.send_message(29424511, "hey was geht n so")
+        //     .send()
+        //     .await
+        //     .context("While sending reply")?;
+        delay_for(Duration::from_secs(config::DATE_CHECK_TIMEOUT_SECS)).await;
+        let response = perform_action(&Action::CheckDateMaybeSendPolls);
+        if let Response::TaskPolls(user_task_data) = response {
+            send_user_task_polls(&bot, &user_task_data).await?;
+        }
+    }
 }
 
 async fn handle_command(message: UpdateWithCx<Message>, command: Command) -> Result<()> {
@@ -153,6 +175,6 @@ fn convert_message_to_action(message: &UpdateWithCx<Message>, command: Command) 
                 ))
             }
         }
-        Command::DeshittifyMyDay => Ok(Action::SendTaskPoll),
+        Command::DeshittifyMyDay => Ok(Action::CheckDateMaybeSendPolls),
     }
 }

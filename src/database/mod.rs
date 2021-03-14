@@ -5,7 +5,7 @@ pub mod task;
 pub mod task_data;
 
 use anyhow::{anyhow, Context, Result};
-use chrono::{Local, NaiveDate};
+use chrono::{Duration, Local, NaiveDate, NaiveTime};
 use itertools::Itertools;
 use rusqlite::{params, Connection};
 use std::path::Path;
@@ -13,6 +13,7 @@ use teloxide::types::PollOption;
 
 use crate::{
     action::UserPollDateInfo,
+    config,
     response::{PollData, UserTaskData},
 };
 
@@ -147,7 +148,25 @@ impl Database {
         Ok(challenge_id)
     }
 
-    pub fn get_all_user_tasks(&self) -> Result<UserTaskData> {
+    pub fn check_date_and_get_all_user_tasks(&self) -> Result<UserTaskData> {
+        if self.poll_already_sent_today()? || self.too_early() {
+            return Ok(UserTaskData { data: vec![] });
+        }
+        self.write_poll_send_date()?;
+        self.get_user_tasks()
+    }
+
+    pub fn too_early(&self) -> bool {
+        let datetime_now = Local::now().naive_local();
+        let datetime_to_send_at = Local::today().naive_local().and_time(NaiveTime::from_hms(
+            config::HOUR_TO_SEND_AT,
+            0,
+            0,
+        ));
+        datetime_now < datetime_to_send_at
+    }
+
+    pub fn get_user_tasks(&self) -> Result<UserTaskData> {
         let mut statement = self.connection.prepare(
             "SELECT user.user_id, user.chat_id, task.name FROM user, task WHERE user.user_id = task.user_id GROUP BY user.chat_id, task.name ORDER BY user.chat_id, task.name",
         )?;
@@ -172,6 +191,23 @@ impl Database {
             });
         }
         Ok(data_grouped)
+    }
+
+    pub fn write_poll_send_date(&self) -> Result<()> {
+        let date_today = Local::today().naive_local();
+        self.connection.execute(
+            "INSERT INTO pollSendDate (date) VALUES (?1)",
+            params![date_today],
+        )?;
+        Ok(())
+    }
+
+    pub fn poll_already_sent_today(&self) -> Result<bool> {
+        let date_today = Local::today().naive_local();
+        let mut statement = self
+            .connection
+            .prepare("SELECT id FROM pollSendDate WHERE date = ?1")?;
+        statement.exists(params![date_today,]).context("")
     }
 
     pub fn modify_user_task_entries(&self, poll_id: &str, option_ids: &Vec<i32>) -> Result<()> {
