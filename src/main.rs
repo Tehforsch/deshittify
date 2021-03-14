@@ -8,6 +8,7 @@ pub mod database;
 pub mod response;
 pub mod telegram;
 pub mod time_frame;
+pub mod task_handling;
 
 fn main() -> Result<()> {
     run_bot()
