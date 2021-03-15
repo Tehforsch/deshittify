@@ -1,8 +1,7 @@
 pub mod command;
 pub mod response_handling;
 
-use anyhow::{Result};
-
+use anyhow::Result;
 
 use teloxide::types::{CallbackQuery, PollAnswer};
 use teloxide::{
@@ -25,7 +24,7 @@ use crate::{
 
 use crate::{action::Action, time_frame::TimeFrame};
 
-use std::{sync::atomic::AtomicU64};
+use std::sync::atomic::AtomicU64;
 
 use lazy_static::lazy_static;
 use tokio::{
@@ -74,10 +73,6 @@ pub async fn run_bot() -> Result<()> {
 
 async fn deshittify_my_life(bot: Bot) -> Result<()> {
     loop {
-        // bot.send_message(29424511, "hey was geht n so")
-        //     .send()
-        //     .await
-        //     .context("While sending reply")?;
         delay_for(Duration::from_secs(config::DATE_CHECK_TIMEOUT_SECS)).await;
         let response = perform_action(&Action::CheckDateMaybeSendPolls);
         if let Response::TaskPolls(user_task_data) = response {
@@ -118,7 +113,6 @@ fn convert_callback_query_to_action(message: &UpdateWithCx<CallbackQuery>) -> Re
         {
             let challenge_id: i32 = data.parse()?;
             let user_id = message.update.from.id;
-            // let user_name = "asd".to_owned();
             let user_name = message.update.from.first_name.clone();
             return Ok(Action::SubscribeToChallenge(
                 user_id,
