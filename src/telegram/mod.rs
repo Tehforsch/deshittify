@@ -1,8 +1,7 @@
 pub mod command;
 pub mod response_handling;
 
-use anyhow::{Result};
-
+use anyhow::Result;
 
 use teloxide::types::{CallbackQuery, PollAnswer};
 use teloxide::{
@@ -25,7 +24,7 @@ use crate::{
 
 use crate::{action::Action, time_frame::TimeFrame};
 
-use std::{sync::atomic::AtomicU64};
+use std::sync::atomic::AtomicU64;
 
 use lazy_static::lazy_static;
 use tokio::{
@@ -78,11 +77,11 @@ async fn deshittify_my_life(bot: Bot) -> Result<()> {
         //     .send()
         //     .await
         //     .context("While sending reply")?;
-        delay_for(Duration::from_secs(config::DATE_CHECK_TIMEOUT_SECS)).await;
         let response = perform_action(&Action::CheckDateMaybeSendPolls);
         if let Response::TaskPolls(user_task_data) = response {
             send_user_task_polls(&bot, &user_task_data).await?;
         }
+        delay_for(Duration::from_secs(config::DATE_CHECK_TIMEOUT_SECS)).await;
     }
 }
 

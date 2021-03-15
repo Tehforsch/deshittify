@@ -10,7 +10,6 @@ use itertools::Itertools;
 use rusqlite::{params, Connection};
 use std::path::Path;
 
-
 use crate::{
     action::UserPollDateInfo,
     config,
@@ -149,7 +148,7 @@ impl Database {
     }
 
     pub fn check_date_and_get_all_user_tasks(&self) -> Result<UserTaskData> {
-        if self.poll_already_sent_today()? || self.too_early() {
+        if dbg!(self.poll_already_sent_today()?) || dbg!(self.too_early()) {
             return Ok(UserTaskData { data: vec![] });
         }
         self.write_poll_send_date()?;
@@ -157,9 +156,9 @@ impl Database {
     }
 
     pub fn too_early(&self) -> bool {
-        let datetime_now = Local::now().naive_local();
+        let datetime_now = dbg!(Local::now().naive_local());
         let datetime_to_send_at = Local::today().naive_local().and_time(NaiveTime::from_hms(
-            config::HOUR_TO_SEND_AT,
+            17,
             0,
             0,
         ));
