@@ -27,5 +27,6 @@ pub enum Command {
         description = "Deshittify the day by asking me all the stuff i havent actually done yet",
         parse_with = "split"
     )]
-    DeshittifyMyDay,
+    SendPoll,
+    SendUpdates,
 }

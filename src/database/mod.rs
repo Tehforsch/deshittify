@@ -10,6 +10,8 @@ use itertools::Itertools;
 use rusqlite::{params, Connection};
 use std::path::Path;
 
+==== BASE ====
+
 use crate::{
     action::UserPollDateInfo,
     config,
@@ -148,11 +150,22 @@ impl Database {
     }
 
     pub fn check_date_and_get_all_user_tasks(&self) -> Result<UserTaskData> {
-        if dbg!(self.poll_already_sent_today()?) || dbg!(self.too_early()) {
+==== BASE ====
+        if self.poll_already_sent_today()? || self.too_early() {
+==== BASE ====
             return Ok(UserTaskData { data: vec![] });
         }
         self.write_poll_send_date()?;
         self.get_user_tasks()
+    }
+
+    pub fn check_date_and_get_challenge_update_data(&self) -> Result<ChallengeUpdateData> {
+        // if self.challenge_update_already_sent_today()? || self.too_early() {
+            // return Ok(ChallengeUpdateData { });
+        // }
+        println!("REMOVE COMMENT");
+        self.write_challenge_update_send_date()?;
+        self.get_challenge_update_data()
     }
 
     pub fn too_early(&self) -> bool {
@@ -192,10 +205,38 @@ impl Database {
         Ok(data_grouped)
     }
 
+    pub fn get_challenge_update_data(&self) -> Result<ChallengeUpdateData> {
+        let mut statement = self.connection.prepare(
+            "SELECT challenge.id, challenge.name, challenge.time_start, challenge.time_end, user.chat_id FROM challenge, user, userChallenge WHERE user.user_id = userChallenge.user_id AND challenge.id = userChallenge.challenge_id",
+        )?;
+        let challenges_result = statement.query_map(params![], |row| {
+            Ok((
+                row.get::<_, i32>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, NaiveDate>(2)?,
+                row.get::<_, NaiveDate>(3)?,
+                row.get::<_, i64>(4)?,
+            ))
+        })?;
+        let challenges: Vec<_> =
+            challenges_result.collect::<rusqlite::Result<_>>()?;
+        dbg!(challenges);
+        todo!()
+    }
+
     pub fn write_poll_send_date(&self) -> Result<()> {
         let date_today = Local::today().naive_local();
         self.connection.execute(
             "INSERT INTO pollSendDate (date) VALUES (?1)",
+            params![date_today],
+        )?;
+        Ok(())
+    }
+
+    pub fn write_challenge_update_send_date(&self) -> Result<()> {
+        let date_today = Local::today().naive_local();
+        self.connection.execute(
+            "INSERT INTO challengeUpdateSendDate (date) VALUES (?1)",
             params![date_today],
         )?;
         Ok(())
@@ -206,6 +247,14 @@ impl Database {
         let mut statement = self
             .connection
             .prepare("SELECT id FROM pollSendDate WHERE date = ?1")?;
+        statement.exists(params![date_today,]).context("")
+    }
+
+    pub fn challenge_update_already_sent_today(&self) -> Result<bool> {
+        let date_today = Local::today().naive_local();
+        let mut statement = self
+            .connection
+            .prepare("SELECT id FROM challengeUpdateSendDate WHERE date = ?1")?;
         statement.exists(params![date_today,]).context("")
     }
 

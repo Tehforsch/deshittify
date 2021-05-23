@@ -11,6 +11,7 @@ pub enum Action {
     SignupUser(i32, i64),
     ErrorMessage(String),
     CheckDateMaybeSendPolls,
+    CheckDateMaybeSendChallengeUpdates,
     ModifyUserTaskTimestamps(String, Vec<i32>),
     WritePollInfo(Vec<UserPollDateInfo>),
     Nothing,
