@@ -78,17 +78,11 @@ async fn user_task_polls_send_thread(bot: Bot) -> Result<()> {
 
 async fn challenge_status_updates_send_thread(bot: Bot) -> Result<()> {
     loop {
-==== BASE ====
-        // bot.send_message(29424511, "hey was geht n so")
-        //     .send()
-        //     .await
-        //     .context("While sending reply")?;
         delay_for(Duration::from_secs(config::DATE_CHECK_TIMEOUT_SECS)).await;
         let response = perform_action(&Action::CheckDateMaybeSendPolls);
         if let Response::TaskPolls(user_task_data) = response {
             send_user_task_polls(&bot, &user_task_data).await?;
         }
-        delay_for(Duration::from_secs(config::DATE_CHECK_TIMEOUT_SECS)).await;
     }
 }
 

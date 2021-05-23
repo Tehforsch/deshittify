@@ -10,13 +10,8 @@ use itertools::Itertools;
 use rusqlite::{params, Connection};
 use std::path::Path;
 
-==== BASE ====
 
-use crate::{
-    action::UserPollDateInfo,
-    config,
-    response::{PollData, UserTaskData},
-};
+use crate::{action::UserPollDateInfo, config, response::{ChallengeUpdateData, PollData, UserTaskData}};
 
 use self::challenge_data::ChallengeData;
 use self::{challenge::Challenge, task_data::TaskData};
@@ -150,9 +145,7 @@ impl Database {
     }
 
     pub fn check_date_and_get_all_user_tasks(&self) -> Result<UserTaskData> {
-==== BASE ====
-        if self.poll_already_sent_today()? || self.too_early() {
-==== BASE ====
+        if self.poll_already_sent_today()? || self.too_early(){
             return Ok(UserTaskData { data: vec![] });
         }
         self.write_poll_send_date()?;
@@ -169,10 +162,10 @@ impl Database {
     }
 
     pub fn too_early(&self) -> bool {
-        let datetime_now = dbg!(Local::now().naive_local());
+        let datetime_now = Local::now().naive_local();
         let datetime_to_send_at = Local::today().naive_local().and_time(NaiveTime::from_hms(
             config::HOUR_TO_SEND_AT,
-            config::MINUTE_TO_SEND_AT,
+            0,
             0,
         ));
         datetime_now < datetime_to_send_at
@@ -221,6 +214,7 @@ impl Database {
         let challenges: Vec<_> =
             challenges_result.collect::<rusqlite::Result<_>>()?;
         dbg!(challenges);
+        
         todo!()
     }
 
