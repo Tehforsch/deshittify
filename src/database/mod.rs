@@ -160,7 +160,7 @@ impl Database {
 
     pub fn check_date_and_get_challenge_update_data(&self) -> Result<ChallengeUpdateData> {
         if self.challenge_update_already_sent_today()? || self.too_early() {
-            return Ok(ChallengeUpdateData {});
+            return Ok(ChallengeUpdateData(vec![]));
         }
         self.write_challenge_update_send_date()?;
         self.get_challenge_update_data()
