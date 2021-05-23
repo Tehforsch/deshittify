@@ -11,6 +11,7 @@ pub fn get_done_fraction(
         Period::Week => get_done_fraction_weekly(task.count, done_timestamps, &time_frame.start, &time_frame.end),
         Period::Month => get_done_fraction_monthly(task.count, done_timestamps, &time_frame.start, &time_frame.end),
         Period::Day => todo!(),
+        Period::OneTime => get_done_fraction_onetime(task.count, done_timestamps, &time_frame.start, &time_frame.end),
     }
 }
 
@@ -31,7 +32,6 @@ fn get_done_fraction_weekly(
             fractions.push(1.0);
             continue;
         }
-
         fractions.push(done_count / should_have_done_count);
     }
     average(&fractions).unwrap_or(1.0)
@@ -56,10 +56,19 @@ fn get_done_fraction_monthly(
             fractions.push(1.0);
             continue;
         }
-
         fractions.push(done_count / should_have_done_count);
     }
     average(&fractions).unwrap_or(1.0)
+}
+
+fn get_done_fraction_onetime(
+    count: i32,
+    done_timestamps: &[NaiveDate],
+    start_date: &NaiveDate,
+    end_date: &NaiveDate,
+) -> f64 {
+    let done_count = count_days_in_range(Box::new(done_timestamps.iter().map(|date| date.clone())), start_date, end_date);
+    (done_count as f64 / count as f64).min(1.0)
 }
 
 fn average(numbers: &[f64]) -> Option<f64> {
@@ -175,41 +184,44 @@ fn count_days_in_range<'a>(
 mod tests {
     use chrono::NaiveDate;
 
-    use crate::database::{period::Period, task_data::TaskData};
+    use crate::{database::{period::Period, task_data::TaskData}, time_frame::TimeFrame};
 
     use super::{get_done_fraction, get_month_day_count, get_week_day_count, get_week_day_counts};
 
     #[test]
     fn weekly() {
-        let start_date = NaiveDate::from_ymd(1970, 01, 01);
-        let end_date = NaiveDate::from_ymd(1970, 01, 10);
-        let timestamps = &[start_date, end_date];
-        let percentage = get_done_fraction(&Period::Week, 7, timestamps, &start_date, &end_date);
-        assert_eq!(percentage, (1.0 / 4.0 + 1.0 / 6.0) / 2.0);
+        let timeframe = TimeFrame {
+            start: NaiveDate::from_ymd(1970, 01, 01),
+            end: NaiveDate::from_ymd(1970, 01, 10),
+        };
+        let task_data = TaskData { name: "".into(), count: 7, period: Period::Week };
+        let timestamps = &[timeframe.start, timeframe.end];
+        let fraction = get_done_fraction(&task_data, timestamps, &timeframe);
+        assert_eq!(fraction, (1.0 / 4.0 + 1.0 / 6.0) / 2.0);
         let timestamps = &[
             NaiveDate::from_ymd(1970, 01, 01),
             NaiveDate::from_ymd(1970, 01, 02),
             NaiveDate::from_ymd(1970, 01, 03),
             NaiveDate::from_ymd(1970, 01, 04),
         ];
-        let percentage = get_done_fraction(&Period::Week, 7, timestamps, &start_date, &end_date);
-        assert_eq!(percentage, (4.0 / 4.0 + 0.0 / 6.0) / 2.0);
+        let fraction = get_done_fraction(&task_data, timestamps, &timeframe);
+        assert_eq!(fraction, (4.0 / 4.0 + 0.0 / 6.0) / 2.0);
         let timestamps = &[
             NaiveDate::from_ymd(1970, 01, 01),
             NaiveDate::from_ymd(1970, 01, 02),
             NaiveDate::from_ymd(1970, 01, 03),
             NaiveDate::from_ymd(1970, 01, 05),
         ];
-        let percentage = get_done_fraction(&Period::Week, 7, timestamps, &start_date, &end_date);
-        assert_eq!(percentage, (3.0 / 4.0 + 1.0 / 6.0) / 2.0);
+        let fraction = get_done_fraction(&task_data, timestamps, &timeframe);
+        assert_eq!(fraction, (3.0 / 4.0 + 1.0 / 6.0) / 2.0);
         let timestamps = &[
             NaiveDate::from_ymd(1970, 12, 01),
             NaiveDate::from_ymd(1970, 12, 02),
             NaiveDate::from_ymd(1970, 12, 03),
             NaiveDate::from_ymd(1970, 12, 05),
         ];
-        let percentage = get_done_fraction(&Period::Week, 7, timestamps, &start_date, &end_date);
-        assert_eq!(percentage, 0.0);
+        let fraction = get_done_fraction(&task_data, timestamps, &timeframe);
+        assert_eq!(fraction, 0.0);
         // Once per week with two broken weeks means it never has to be done
         let timestamps = &[
             NaiveDate::from_ymd(1970, 01, 01),
@@ -217,28 +229,32 @@ mod tests {
             NaiveDate::from_ymd(1970, 01, 03),
             NaiveDate::from_ymd(1970, 01, 04),
         ];
-        let percentage = get_done_fraction(&Period::Week, 1, timestamps, &start_date, &end_date);
-        assert_eq!(percentage, (1.0 + 1.0) / 2.0);
+        let task_data = TaskData { name: "".into(), count: 1, period: Period::Week };
+        let fraction = get_done_fraction(&task_data, timestamps, &timeframe);
+        assert_eq!(fraction, (1.0 + 1.0) / 2.0);
     }
 
     #[test]
     fn monthly() {
-        let start_date = NaiveDate::from_ymd(1970, 01, 01);
-        let end_date = NaiveDate::from_ymd(1970, 04, 30);
+        let timeframe = TimeFrame {
+            start: NaiveDate::from_ymd(1970, 01, 01),
+            end: NaiveDate::from_ymd(1970, 04, 30),
+        };
+        let task_data = TaskData { name: "".into(), count: 1, period: Period::Month };
         let timestamps = &[
             NaiveDate::from_ymd(1970, 01, 01),
             NaiveDate::from_ymd(1970, 02, 01),
         ];
-        let percentage = get_done_fraction(&Period::Month, 1, timestamps, &start_date, &end_date);
-        assert_eq!(percentage, (1.0 / 1.0 + 1.0 / 1.0 + 2.0 * 0.0 / 1.0) / 4.0);
+        let fraction = get_done_fraction(&task_data, timestamps, &timeframe);
+        assert_eq!(fraction, (1.0 / 1.0 + 1.0 / 1.0 + 2.0 * 0.0 / 1.0) / 4.0);
         let timestamps = &[
             NaiveDate::from_ymd(1970, 01, 01),
             NaiveDate::from_ymd(1970, 01, 02),
             NaiveDate::from_ymd(1970, 01, 03),
             NaiveDate::from_ymd(1970, 01, 04),
         ];
-        let percentage = get_done_fraction(&Period::Month, 1, timestamps, &start_date, &end_date);
-        assert_eq!(percentage, (1.0 / 1.0 + 3.0 * 0.0 / 1.0) / 4.0);
+        let fraction = get_done_fraction(&task_data, timestamps, &timeframe);
+        assert_eq!(fraction, (1.0 / 1.0 + 3.0 * 0.0 / 1.0) / 4.0);
     }
 
     #[test]
@@ -337,5 +353,40 @@ mod tests {
             ),
             9
         );
+    }
+
+    #[test]
+    fn test_onetime() {
+        let timeframe = TimeFrame {
+            start: NaiveDate::from_ymd(1970, 01, 01),
+            end: NaiveDate::from_ymd(1970, 01, 30),
+        };
+        let task_data = TaskData { name: "".into(), count: 2, period: Period::OneTime };
+        let timestamps = &[
+        ];
+        let fraction = get_done_fraction(&task_data, timestamps, &timeframe);
+        assert_eq!(fraction, 0.0);
+
+        let timestamps = &[
+            NaiveDate::from_ymd(1970, 01, 01),
+            NaiveDate::from_ymd(1970, 01, 02),
+        ];
+        let fraction = get_done_fraction(&task_data, timestamps, &timeframe);
+        assert_eq!(fraction, 1.0);
+
+        let timestamps = &[
+            NaiveDate::from_ymd(1970, 01, 01),
+            NaiveDate::from_ymd(1970, 01, 02),
+            NaiveDate::from_ymd(1970, 01, 03), // Doing it more often doesnt increase the fraction beyond 1.0
+        ];
+        let fraction = get_done_fraction(&task_data, timestamps, &timeframe);
+        assert_eq!(fraction, 1.0);
+
+        let timestamps = &[
+            NaiveDate::from_ymd(1970, 01, 01),
+            NaiveDate::from_ymd(1970, 02, 01), // Shouldn't count because outside of range
+        ];
+        let fraction = get_done_fraction(&task_data, timestamps, &timeframe);
+        assert_eq!(fraction, 0.5);
     }
 }
