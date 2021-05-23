@@ -12,8 +12,8 @@ use teloxide::{
 
 use crate::{
     action::{Action, UserPollDateInfo},
-    database::challenge::Challenge,
-    response::{ChallengeUpdateData, ChallengeUserFractions, Response},
+    database::{challenge::Challenge, challenge_performance_data::ChallengePerformanceData},
+    response::{ChallengeUpdateData, Response},
 };
 
 use super::command::Command;
@@ -78,29 +78,39 @@ pub async fn send_challenge_updates(
     bot: &Bot,
     update_data: &ChallengeUpdateData,
 ) -> Result<Action> {
-    for user_fractions in update_data.0.iter() {
+    for challenge_performance in update_data.0.iter() {
         send_text(
             &bot,
-            &user_fractions.chat_id,
-            &get_user_fractions_text(user_fractions),
+            &challenge_performance.chat_id,
+            &get_challenge_performance_text(challenge_performance),
         )
         .await?;
     }
     Ok(Action::Nothing)
 }
 
-fn get_user_fractions_text(challenge_user_fractions: &ChallengeUserFractions) -> String {
-    let lines: Vec<String> = challenge_user_fractions
-        .user_fractions
+fn get_percent(fraction: f64) -> i64 {
+    (fraction * 100.0).round() as i64
+}
+
+fn get_challenge_performance_text(challenge_performance: &ChallengePerformanceData) -> String {
+    let lines: Vec<String> = challenge_performance
+        .user_performance
         .iter()
-        .map(|(user_name, fraction)| {
-            let percent = (fraction * 100.0).round() as i32;
-            format!("{}:\t{}%", user_name, percent)
+        .map(|user_performance| {
+            let alltime_percent = get_percent(
+                user_performance.get_all_time_average(&challenge_performance.challenge.data),
+            );
+            let weekly_percent = get_percent(user_performance.get_weekly_average());
+            format!(
+                "{}:\t{}%\t(Last 7 days: {}%)",
+                user_performance.user.name, alltime_percent, weekly_percent
+            )
         })
         .collect();
     format!(
-        "Daily update on challenge: {}\n{}",
-        challenge_user_fractions.challenge.data.name,
+        "Update on challenge: {}\n{}",
+        challenge_performance.challenge.data.name,
         lines.join("\n")
     )
 }

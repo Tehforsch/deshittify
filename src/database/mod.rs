@@ -1,8 +1,12 @@
 pub mod challenge;
 pub mod challenge_data;
+pub mod challenge_performance_data;
 pub mod period;
 pub mod task;
 pub mod task_data;
+pub mod task_performance_data;
+pub mod user;
+pub mod user_performance_data;
 
 use anyhow::{anyhow, Context, Result};
 use chrono::{Local, NaiveDate, NaiveTime};
@@ -14,12 +18,15 @@ use std::str::FromStr;
 use crate::{
     action::UserPollDateInfo,
     config,
-    response::{ChallengeUpdateData, ChallengeUserFractions, PollData, UserTaskData},
-    task_handling::get_done_fraction,
+    response::{ChallengeUpdateData, PollData, UserTaskData},
     time_frame::TimeFrame,
 };
 
-use self::{challenge::Challenge, task_data::TaskData};
+use self::{
+    challenge::Challenge, challenge_performance_data::ChallengePerformanceData,
+    task_data::TaskData, task_performance_data::TaskPerformanceData, user::UserData,
+    user_performance_data::UserPerformanceData,
+};
 use self::{challenge_data::ChallengeData, period::Period, task::Task};
 
 pub struct Database {
@@ -159,7 +166,9 @@ impl Database {
     }
 
     pub fn check_date_and_get_challenge_update_data(&self) -> Result<ChallengeUpdateData> {
-        if self.challenge_update_already_sent_today()? || self.too_early(config::HOUR_TO_SEND_UPDATE_AT) {
+        if self.challenge_update_already_sent_today()?
+            || self.too_early(config::HOUR_TO_SEND_UPDATE_AT)
+        {
             return Ok(ChallengeUpdateData(vec![]));
         }
         self.write_challenge_update_send_date()?;
@@ -168,11 +177,9 @@ impl Database {
 
     pub fn too_early(&self, hour: u32) -> bool {
         let datetime_now = Local::now().naive_local();
-        let datetime_to_send_at = Local::today().naive_local().and_time(NaiveTime::from_hms(
-            hour,
-            0,
-            0,
-        ));
+        let datetime_to_send_at = Local::today()
+            .naive_local()
+            .and_time(NaiveTime::from_hms(hour, 0, 0));
         datetime_now < datetime_to_send_at
     }
 
@@ -246,12 +253,15 @@ impl Database {
         result.collect()
     }
 
-    pub fn get_challenge_users(&self, challenge_id: i64) -> rusqlite::Result<Vec<(i64, String)>> {
+    pub fn get_challenge_users(&self, challenge_id: i64) -> rusqlite::Result<Vec<UserData>> {
         let mut statement = self
             .connection
             .prepare("SELECT user.user_id, user.name FROM user, userChallenge WHERE userChallenge.user_id = user.user_id AND userChallenge.challenge_id = ?1")?;
         let result = statement.query_map(params![challenge_id], |row| {
-            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+            Ok(UserData {
+                user_id: row.get::<_, i64>(0)?,
+                name: row.get::<_, String>(1)?,
+            })
         })?;
         result.collect()
     }
@@ -265,34 +275,42 @@ impl Database {
         result.collect()
     }
 
-    pub fn get_average_done_fraction(&self, challenge: &Challenge, user_id: i64) -> Result<f64> {
+    pub fn get_task_performance(
+        &self,
+        challenge: &Challenge,
+        user_id: i64,
+    ) -> Result<Vec<TaskPerformanceData>> {
         let tasks = self.get_tasks_for_challenge_and_user(challenge.id, user_id)?;
-        let mut average_fraction = 0.0;
-        for task in tasks.iter() {
-            let timestamps = self.get_timestamps_for_task(&task.data.name)?;
-            let done_fraction =
-                get_done_fraction(&task.data, &timestamps, &challenge.data.time_frame);
-            average_fraction += done_fraction;
-        }
-        Ok(average_fraction / (tasks.len() as f64))
+        tasks
+            .iter()
+            .map(move |task| {
+                Ok(TaskPerformanceData {
+                    task: task.data.clone(),
+                    timestamps: self.get_timestamps_for_task(&task.data.name)?,
+                })
+            })
+            .collect()
     }
 
     pub fn get_challenge_update_data(&self) -> Result<ChallengeUpdateData> {
         let challenges_and_chat_ids = self.get_challenges_and_chat_ids()?;
-        let mut challenge_user_fractions = vec![];
+        let mut challenge_performance_data = vec![];
         for (challenge, chat_id) in challenges_and_chat_ids.iter() {
-            let mut user_fractions = vec![];
-            for (user_id, user_name) in self.get_challenge_users(challenge.id)? {
-                let average_fraction = self.get_average_done_fraction(&challenge, user_id)?;
-                user_fractions.push((user_name, average_fraction));
+            let mut user_performance = vec![];
+            for user in self.get_challenge_users(challenge.id)? {
+                let task_performance = self.get_task_performance(&challenge, user.user_id)?;
+                user_performance.push(UserPerformanceData {
+                    user,
+                    task_performance,
+                });
             }
-            challenge_user_fractions.push(ChallengeUserFractions {
+            challenge_performance_data.push(ChallengePerformanceData {
                 challenge: challenge.clone(),
                 chat_id: *chat_id,
-                user_fractions: user_fractions,
+                user_performance,
             });
         }
-        Ok(ChallengeUpdateData(challenge_user_fractions))
+        Ok(ChallengeUpdateData(challenge_performance_data))
     }
 
     pub fn write_poll_send_date(&self) -> Result<()> {

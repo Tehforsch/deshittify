@@ -1,4 +1,7 @@
-use crate::database::challenge::Challenge;
+use crate::database::{
+    challenge::Challenge, challenge_performance_data::ChallengePerformanceData,
+    task_performance_data::TaskPerformanceData, user::UserData,
+};
 
 #[derive(Debug)]
 pub enum Response {
@@ -16,14 +19,7 @@ pub struct UserTaskData {
 }
 
 #[derive(Debug)]
-pub struct ChallengeUpdateData(pub Vec<ChallengeUserFractions>);
-
-#[derive(Debug)]
-pub struct ChallengeUserFractions {
-    pub chat_id: i64,
-    pub challenge: Challenge,
-    pub user_fractions: Vec<(String, f64)>,
-}
+pub struct ChallengeUpdateData(pub Vec<ChallengePerformanceData>);
 
 #[derive(Debug)]
 pub struct PollData {

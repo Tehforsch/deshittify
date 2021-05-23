@@ -1,6 +1,6 @@
 use super::period::Period;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TaskData {
     pub name: String,
     pub count: i32,
