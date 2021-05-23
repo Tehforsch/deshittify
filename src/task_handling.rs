@@ -1,6 +1,9 @@
 use chrono::{Datelike, Duration, NaiveDate, Weekday};
 
-use crate::{database::{period::Period, task_data::TaskData}, time_frame::TimeFrame};
+use crate::{
+    database::{period::Period, task_data::TaskData},
+    time_frame::TimeFrame,
+};
 
 pub fn get_done_fraction(
     task: &TaskData,
@@ -8,10 +11,25 @@ pub fn get_done_fraction(
     time_frame: &TimeFrame,
 ) -> f64 {
     match task.period {
-        Period::Week => get_done_fraction_weekly(task.count, done_timestamps, &time_frame.start, &time_frame.end),
-        Period::Month => get_done_fraction_monthly(task.count, done_timestamps, &time_frame.start, &time_frame.end),
+        Period::Week => get_done_fraction_weekly(
+            task.count,
+            done_timestamps,
+            &time_frame.start,
+            &time_frame.end,
+        ),
+        Period::Month => get_done_fraction_monthly(
+            task.count,
+            done_timestamps,
+            &time_frame.start,
+            &time_frame.end,
+        ),
         Period::Day => todo!(),
-        Period::OneTime => get_done_fraction_onetime(task.count, done_timestamps, &time_frame.start, &time_frame.end),
+        Period::OneTime => get_done_fraction_onetime(
+            task.count,
+            done_timestamps,
+            &time_frame.start,
+            &time_frame.end,
+        ),
     }
 }
 
@@ -67,7 +85,11 @@ fn get_done_fraction_onetime(
     start_date: &NaiveDate,
     end_date: &NaiveDate,
 ) -> f64 {
-    let done_count = count_days_in_range(Box::new(done_timestamps.iter().map(|date| date.clone())), start_date, end_date);
+    let done_count = count_days_in_range(
+        Box::new(done_timestamps.iter().map(|date| date.clone())),
+        start_date,
+        end_date,
+    );
     (done_count as f64 / count as f64).min(1.0)
 }
 
@@ -184,7 +206,10 @@ fn count_days_in_range<'a>(
 mod tests {
     use chrono::NaiveDate;
 
-    use crate::{database::{period::Period, task_data::TaskData}, time_frame::TimeFrame};
+    use crate::{
+        database::{period::Period, task_data::TaskData},
+        time_frame::TimeFrame,
+    };
 
     use super::{get_done_fraction, get_month_day_count, get_week_day_count, get_week_day_counts};
 
@@ -194,7 +219,11 @@ mod tests {
             start: NaiveDate::from_ymd(1970, 01, 01),
             end: NaiveDate::from_ymd(1970, 01, 10),
         };
-        let task_data = TaskData { name: "".into(), count: 7, period: Period::Week };
+        let task_data = TaskData {
+            name: "".into(),
+            count: 7,
+            period: Period::Week,
+        };
         let timestamps = &[timeframe.start, timeframe.end];
         let fraction = get_done_fraction(&task_data, timestamps, &timeframe);
         assert_eq!(fraction, (1.0 / 4.0 + 1.0 / 6.0) / 2.0);
@@ -229,7 +258,11 @@ mod tests {
             NaiveDate::from_ymd(1970, 01, 03),
             NaiveDate::from_ymd(1970, 01, 04),
         ];
-        let task_data = TaskData { name: "".into(), count: 1, period: Period::Week };
+        let task_data = TaskData {
+            name: "".into(),
+            count: 1,
+            period: Period::Week,
+        };
         let fraction = get_done_fraction(&task_data, timestamps, &timeframe);
         assert_eq!(fraction, (1.0 + 1.0) / 2.0);
     }
@@ -240,7 +273,11 @@ mod tests {
             start: NaiveDate::from_ymd(1970, 01, 01),
             end: NaiveDate::from_ymd(1970, 04, 30),
         };
-        let task_data = TaskData { name: "".into(), count: 1, period: Period::Month };
+        let task_data = TaskData {
+            name: "".into(),
+            count: 1,
+            period: Period::Month,
+        };
         let timestamps = &[
             NaiveDate::from_ymd(1970, 01, 01),
             NaiveDate::from_ymd(1970, 02, 01),
@@ -361,9 +398,12 @@ mod tests {
             start: NaiveDate::from_ymd(1970, 01, 01),
             end: NaiveDate::from_ymd(1970, 01, 30),
         };
-        let task_data = TaskData { name: "".into(), count: 2, period: Period::OneTime };
-        let timestamps = &[
-        ];
+        let task_data = TaskData {
+            name: "".into(),
+            count: 2,
+            period: Period::OneTime,
+        };
+        let timestamps = &[];
         let fraction = get_done_fraction(&task_data, timestamps, &timeframe);
         assert_eq!(fraction, 0.0);
 

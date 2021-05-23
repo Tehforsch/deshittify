@@ -151,19 +151,17 @@ impl Database {
     }
 
     pub fn check_date_and_get_all_user_tasks(&self) -> Result<UserTaskData> {
-        // if self.poll_already_sent_today()? || self.too_early(){
-        // return Ok(UserTaskData { data: vec![] });
-        // }
-        println!("REMOVE COMMENT");
+        if self.poll_already_sent_today()? || self.too_early() {
+            return Ok(UserTaskData { data: vec![] });
+        }
         self.write_poll_send_date()?;
         self.get_user_tasks()
     }
 
     pub fn check_date_and_get_challenge_update_data(&self) -> Result<ChallengeUpdateData> {
-        // if self.challenge_update_already_sent_today()? || self.too_early() {
-        // return Ok(ChallengeUpdateData { });
-        // }
-        println!("REMOVE COMMENT");
+        if self.challenge_update_already_sent_today()? || self.too_early() {
+            return Ok(ChallengeUpdateData {});
+        }
         self.write_challenge_update_send_date()?;
         self.get_challenge_update_data()
     }

@@ -9,7 +9,14 @@ use teloxide::{
     types::{InlineKeyboardButtonKind, MessageKind},
 };
 
-use self::{command::Command, response_handling::perform_reponse_to_callback_query, response_handling::{perform_reponse_to_poll_answer, perform_response_to_command, send_challenge_updates, send_user_task_polls}};
+use self::{
+    command::Command,
+    response_handling::perform_reponse_to_callback_query,
+    response_handling::{
+        perform_reponse_to_poll_answer, perform_response_to_command, send_challenge_updates,
+        send_user_task_polls,
+    },
+};
 use crate::{action_handling::perform_action, config};
 use crate::{
     database::{challenge_data::ChallengeData, task_data::TaskData},
@@ -59,7 +66,11 @@ pub async fn run_bot() -> Result<()> {
         });
     let handler = dispatcher.dispatch();
 
-    let (res1, res2, _) = join!(user_task_poll_sender, challenge_status_update_sender, handler);
+    let (res1, res2, _) = join!(
+        user_task_poll_sender,
+        challenge_status_update_sender,
+        handler
+    );
     res1?;
     res2?;
 
