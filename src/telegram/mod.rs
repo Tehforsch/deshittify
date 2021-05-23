@@ -9,13 +9,7 @@ use teloxide::{
     types::{InlineKeyboardButtonKind, MessageKind},
 };
 
-use self::{
-    command::Command,
-    response_handling::perform_reponse_to_callback_query,
-    response_handling::{
-        perform_reponse_to_poll_answer, perform_response_to_command, send_user_task_polls,
-    },
-};
+use self::{command::Command, response_handling::perform_reponse_to_callback_query, response_handling::{perform_reponse_to_poll_answer, perform_response_to_command, send_challenge_updates, send_user_task_polls}};
 use crate::{action_handling::perform_action, config};
 use crate::{
     database::{challenge_data::ChallengeData, task_data::TaskData},
@@ -44,12 +38,12 @@ pub async fn run_bot() -> Result<()> {
     let bot = Bot::from_env();
     let bot_name = "deshittify";
 
-    let reminder_sender = deshittify_my_life(Bot::from_env());
+    let user_task_poll_sender = user_task_polls_send_thread(Bot::from_env());
+    let challenge_status_update_sender = challenge_status_updates_send_thread(Bot::from_env());
 
     let dispatcher = Dispatcher::new(bot)
         .messages_handler(move |rx: DispatcherHandlerRx<Message>| {
             rx.commands(bot_name).for_each(|(cx, command)| async move {
-                dbg!("Dispatch 1");
                 handle_command(cx, command).await.log_on_error().await;
             })
         })
@@ -65,13 +59,24 @@ pub async fn run_bot() -> Result<()> {
         });
     let handler = dispatcher.dispatch();
 
-    let (res1, _) = join!(reminder_sender, handler);
+    let (res1, res2, _) = join!(user_task_poll_sender, challenge_status_update_sender, handler);
     res1?;
+    res2?;
 
     Ok(())
 }
 
-async fn deshittify_my_life(bot: Bot) -> Result<()> {
+async fn user_task_polls_send_thread(bot: Bot) -> Result<()> {
+    loop {
+        delay_for(Duration::from_secs(config::DATE_CHECK_TIMEOUT_SECS)).await;
+        let response = perform_action(&Action::CheckDateMaybeSendPolls);
+        if let Response::ChallengeUpdates(user_task_data) = response {
+            send_challenge_updates(&bot, &user_task_data).await?;
+        }
+    }
+}
+
+async fn challenge_status_updates_send_thread(bot: Bot) -> Result<()> {
     loop {
 ==== BASE ====
         // bot.send_message(29424511, "hey was geht n so")
@@ -175,6 +180,7 @@ fn convert_message_to_action(message: &UpdateWithCx<Message>, command: Command) 
                 ))
             }
         }
-        Command::DeshittifyMyDay => Ok(Action::CheckDateMaybeSendPolls),
+        Command::SendPoll => Ok(Action::CheckDateMaybeSendPolls),
+        Command::SendUpdates => Ok(Action::CheckDateMaybeSendChallengeUpdates),
     }
 }

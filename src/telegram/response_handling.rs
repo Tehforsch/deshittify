@@ -35,6 +35,9 @@ pub async fn perform_response_to_command(
         Response::TaskPolls(task_polls) => {
             return Ok(Some(send_user_task_polls(&message.bot, task_polls).await?));
         }
+        Response::ChallengeUpdates(challenge_updates) => {
+            return Ok(Some(send_challenge_updates(&message.bot, challenge_updates).await?));
+        }
         Response::Nothing => {}
     };
     Ok(None)
@@ -67,6 +70,13 @@ pub async fn send_user_task_polls(
         }
     }
     Ok(Action::WritePollInfo(user_poll_date_infos))
+}
+
+pub async fn send_challenge_updates(
+    bot: &Bot,
+    task_polls: &crate::response::ChallengeUpdateData,
+) -> Result<Action> {
+    todo!()
 }
 
 pub fn get_poll_id(send_poll: &Message) -> String {

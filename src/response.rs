@@ -7,11 +7,16 @@ pub enum Response {
     SubscriptionPrompt(Challenge),
     Nothing,
     TaskPolls(UserTaskData),
+    ChallengeUpdates(ChallengeUpdateData),
 }
 
 #[derive(Debug)]
 pub struct UserTaskData {
     pub data: Vec<PollData>,
+}
+
+#[derive(Debug)]
+pub struct ChallengeUpdateData {
 }
 
 #[derive(Debug)]
