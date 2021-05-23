@@ -1,6 +1,5 @@
 use crate::database::{
     challenge::Challenge, challenge_performance_data::ChallengePerformanceData,
-    task_performance_data::TaskPerformanceData, user::UserData,
 };
 
 #[derive(Debug)]
