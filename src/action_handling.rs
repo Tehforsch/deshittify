@@ -2,7 +2,6 @@ use anyhow::Result;
 
 use std::path::Path;
 
-
 use crate::{
     action::{Action, UserPollDateInfo},
     config,
