@@ -145,9 +145,10 @@ impl Database {
     }
 
     pub fn check_date_and_get_all_user_tasks(&self) -> Result<UserTaskData> {
-        if self.poll_already_sent_today()? || self.too_early(){
-            return Ok(UserTaskData { data: vec![] });
-        }
+        // if self.poll_already_sent_today()? || self.too_early(){
+            // return Ok(UserTaskData { data: vec![] });
+        // }
+        println!("REMOVE COMMENT");
         self.write_poll_send_date()?;
         self.get_user_tasks()
     }
@@ -270,6 +271,7 @@ impl Database {
 
     pub fn write_poll_info(&self, info: &Vec<UserPollDateInfo>) -> Result<()> {
         for user_poll_date_info in info.iter() {
+            dbg!("hi");
             self.connection.execute(
                 "INSERT INTO userPollDate (date, user_id, poll_id, task_id, task_index, done) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                 params![user_poll_date_info.date, user_poll_date_info.user_id, user_poll_date_info.poll_id, user_poll_date_info.task_id, user_poll_date_info.task_index, 0]
