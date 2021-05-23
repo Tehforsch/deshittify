@@ -158,8 +158,8 @@ impl Database {
     pub fn too_early(&self) -> bool {
         let datetime_now = dbg!(Local::now().naive_local());
         let datetime_to_send_at = Local::today().naive_local().and_time(NaiveTime::from_hms(
-            17,
-            0,
+            config::HOUR_TO_SEND_AT,
+            config::MINUTE_TO_SEND_AT,
             0,
         ));
         datetime_now < datetime_to_send_at
