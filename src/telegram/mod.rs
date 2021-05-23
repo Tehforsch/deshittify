@@ -39,7 +39,7 @@ pub async fn run_bot() -> Result<()> {
     let bot_name = "deshittify";
 
     let user_task_poll_sender = user_task_polls_send_thread(Bot::from_env());
-    let challenge_status_update_sender = challenge_status_updates_send_thread(Bot::from_env());
+    let challenge_status_update_sender = challenge_updates_send_thread(Bot::from_env());
 
     let dispatcher = Dispatcher::new(bot)
         .messages_handler(move |rx: DispatcherHandlerRx<Message>| {
@@ -66,17 +66,18 @@ pub async fn run_bot() -> Result<()> {
     Ok(())
 }
 
-async fn user_task_polls_send_thread(bot: Bot) -> Result<()> {
+async fn challenge_updates_send_thread(bot: Bot) -> Result<()> {
     loop {
-        delay_for(Duration::from_secs(config::DATE_CHECK_TIMEOUT_SECS)).await;
-        let response = perform_action(&Action::CheckDateMaybeSendPolls);
+        let response = perform_action(&Action::CheckDateMaybeSendChallengeUpdates);
         if let Response::ChallengeUpdates(user_task_data) = response {
-            send_challenge_updates(&bot, &user_task_data).await?;
+            let action = send_challenge_updates(&bot, &user_task_data).await?;
+            perform_action(&action);
         }
+        delay_for(Duration::from_secs(config::DATE_CHECK_TIMEOUT_SECS)).await;
     }
 }
 
-async fn challenge_status_updates_send_thread(bot: Bot) -> Result<()> {
+async fn user_task_polls_send_thread(bot: Bot) -> Result<()> {
     loop {
         let response = perform_action(&Action::CheckDateMaybeSendPolls);
         if let Response::TaskPolls(user_task_data) = response {
@@ -164,9 +165,11 @@ fn convert_message_to_action(message: &UpdateWithCx<Message>, command: Command) 
         )),
         Command::Signup => {
             if message.update.chat.is_private() {
+                let user = message.update.from().unwrap();
                 Ok(Action::SignupUser(
-                    message.update.from().unwrap().id,
+                    user.id,
                     message.update.chat.id,
+                    user.first_name.clone(),
                 ))
             } else {
                 Ok(Action::ErrorMessage(

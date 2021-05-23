@@ -16,7 +16,13 @@ pub struct UserTaskData {
 }
 
 #[derive(Debug)]
-pub struct ChallengeUpdateData {
+pub struct ChallengeUpdateData(pub Vec<ChallengeUserFractions>);
+
+#[derive(Debug)]
+pub struct ChallengeUserFractions {
+    pub chat_id: i64,
+    pub challenge: Challenge,
+    pub user_fractions: Vec<(String, f64)>,
 }
 
 #[derive(Debug)]

@@ -8,7 +8,7 @@ pub enum Action {
     CreateNewChallenge(ChallengeData),
     SubscribeToChallenge(i32, i32, String),
     SendHelp,
-    SignupUser(i32, i64),
+    SignupUser(i32, i64, String),
     ErrorMessage(String),
     CheckDateMaybeSendPolls,
     CheckDateMaybeSendChallengeUpdates,

@@ -10,11 +10,7 @@ use teloxide::{
     types::{CallbackQuery, MediaKind, MessageKind, PollAnswer},
 };
 
-use crate::{
-    action::{Action, UserPollDateInfo},
-    database::challenge::Challenge,
-    response::Response,
-};
+use crate::{action::{Action, UserPollDateInfo}, database::challenge::Challenge, response::{ChallengeUpdateData, ChallengeUserFractions, Response}};
 
 use super::command::Command;
 
@@ -74,9 +70,20 @@ pub async fn send_user_task_polls(
 
 pub async fn send_challenge_updates(
     bot: &Bot,
-    task_polls: &crate::response::ChallengeUpdateData,
+    update_data: &ChallengeUpdateData,
 ) -> Result<Action> {
-    todo!()
+    for user_fractions in update_data.0.iter() {
+        send_text(&bot, &user_fractions.chat_id, &get_user_fractions_text(user_fractions)).await?;
+    }
+    Ok(Action::Nothing)
+}
+
+fn get_user_fractions_text(challenge_user_fractions: &ChallengeUserFractions) -> String {
+    let lines: Vec<String> = challenge_user_fractions.user_fractions.iter().map(| (user_name, fraction)| {
+        let percent = (fraction * 100.0).round() as i32;
+        format!("{}:\t{}%", user_name, percent)
+    }).collect();
+    format!("Daily update on challenge: {}\n{}", challenge_user_fractions.challenge.data.name, lines.join("\n"))
 }
 
 pub fn get_poll_id(send_poll: &Message) -> String {

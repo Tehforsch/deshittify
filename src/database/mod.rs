@@ -9,12 +9,18 @@ use chrono::{Local, NaiveDate, NaiveTime};
 use itertools::Itertools;
 use rusqlite::{params, Connection};
 use std::path::Path;
+use std::str::FromStr;
 
+use crate::{
+    action::UserPollDateInfo,
+    config,
+    response::{ChallengeUpdateData, ChallengeUserFractions, PollData, UserTaskData},
+    task_handling::get_done_fraction,
+    time_frame::TimeFrame,
+};
 
-use crate::{action::UserPollDateInfo, config, response::{ChallengeUpdateData, PollData, UserTaskData}};
-
-use self::challenge_data::ChallengeData;
 use self::{challenge::Challenge, task_data::TaskData};
+use self::{challenge_data::ChallengeData, period::Period, task::Task};
 
 pub struct Database {
     connection: Connection,
@@ -94,11 +100,11 @@ impl Database {
         Ok(user_already_subscribed)
     }
 
-    pub fn signup_user(&self, user_id: &i32, chat_id: &i64) -> Result<()> {
+    pub fn signup_user(&self, user_id: &i32, chat_id: &i64, user_name: &str) -> Result<()> {
         self.connection
             .execute(
-                "INSERT INTO user (user_id, chat_id) VALUES (?1, ?2)",
-                params![user_id, chat_id,],
+                "INSERT INTO user (user_id, chat_id, name) VALUES (?1, ?2, ?3)",
+                params![user_id, chat_id, user_name,],
             )
             .context("While inserting user into table")
             .map(|_| ())
@@ -146,7 +152,7 @@ impl Database {
 
     pub fn check_date_and_get_all_user_tasks(&self) -> Result<UserTaskData> {
         // if self.poll_already_sent_today()? || self.too_early(){
-            // return Ok(UserTaskData { data: vec![] });
+        // return Ok(UserTaskData { data: vec![] });
         // }
         println!("REMOVE COMMENT");
         self.write_poll_send_date()?;
@@ -155,7 +161,7 @@ impl Database {
 
     pub fn check_date_and_get_challenge_update_data(&self) -> Result<ChallengeUpdateData> {
         // if self.challenge_update_already_sent_today()? || self.too_early() {
-            // return Ok(ChallengeUpdateData { });
+        // return Ok(ChallengeUpdateData { });
         // }
         println!("REMOVE COMMENT");
         self.write_challenge_update_send_date()?;
@@ -199,24 +205,96 @@ impl Database {
         Ok(data_grouped)
     }
 
-    pub fn get_challenge_update_data(&self) -> Result<ChallengeUpdateData> {
+    pub fn get_challenges_and_chat_ids(&self) -> rusqlite::Result<Vec<(Challenge, i64)>> {
         let mut statement = self.connection.prepare(
             "SELECT challenge.id, challenge.name, challenge.time_start, challenge.time_end, user.chat_id FROM challenge, user, userChallenge WHERE user.user_id = userChallenge.user_id AND challenge.id = userChallenge.challenge_id",
         )?;
         let challenges_result = statement.query_map(params![], |row| {
             Ok((
-                row.get::<_, i32>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, NaiveDate>(2)?,
-                row.get::<_, NaiveDate>(3)?,
+                Challenge {
+                    id: row.get::<_, i64>(0)?,
+                    data: ChallengeData {
+                        name: row.get::<_, String>(1)?,
+                        time_frame: TimeFrame {
+                            start: row.get::<_, NaiveDate>(2)?,
+                            end: row.get::<_, NaiveDate>(3)?,
+                        },
+                    },
+                },
                 row.get::<_, i64>(4)?,
             ))
         })?;
-        let challenges: Vec<_> =
-            challenges_result.collect::<rusqlite::Result<_>>()?;
-        dbg!(challenges);
-        
-        todo!()
+        challenges_result.collect()
+    }
+
+    pub fn get_tasks_for_challenge_and_user(
+        &self,
+        challenge_id: i64,
+        user_id: i64,
+    ) -> rusqlite::Result<Vec<Task>> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT task.id, task.name, task.count, task.period FROM task WHERE task.challenge_id = ?1 AND task.user_id = ?2")?;
+        let result = statement.query_map(params![challenge_id, user_id], |row| {
+            Ok(Task {
+                id: row.get::<_, i64>(0)?,
+                data: TaskData {
+                    name: row.get::<_, String>(1)?,
+                    count: row.get::<_, i32>(2)?,
+                    period: Period::from_str(&row.get::<_, String>(3)?).unwrap(),
+                },
+            })
+        })?;
+        result.collect()
+    }
+
+    pub fn get_challenge_users(&self, challenge_id: i64) -> rusqlite::Result<Vec<(i64, String)>> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT user.user_id, user.name FROM user, userChallenge WHERE userChallenge.user_id = user.user_id AND userChallenge.challenge_id = ?1")?;
+        let result = statement.query_map(params![challenge_id], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?;
+        result.collect()
+    }
+
+    pub fn get_timestamps_for_task(&self, task_name: &str) -> rusqlite::Result<Vec<NaiveDate>> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT userPollDate.date FROM userPollDate WHERE userPollDate.done = 1 AND userPollDate.task_id = ?1")?;
+        let result =
+            statement.query_map(params![task_name], |row| Ok(row.get::<_, NaiveDate>(0)?))?;
+        result.collect()
+    }
+
+    pub fn get_average_done_fraction(&self, challenge: &Challenge, user_id: i64) -> Result<f64> {
+        let tasks = self.get_tasks_for_challenge_and_user(challenge.id, user_id)?;
+        let mut average_fraction = 0.0;
+        for task in tasks.iter() {
+            let timestamps = self.get_timestamps_for_task(&task.data.name)?;
+            let done_fraction =
+                get_done_fraction(&task.data, &timestamps, &challenge.data.time_frame);
+            average_fraction += done_fraction;
+        }
+        Ok(average_fraction / (tasks.len() as f64))
+    }
+
+    pub fn get_challenge_update_data(&self) -> Result<ChallengeUpdateData> {
+        let challenges_and_chat_ids = self.get_challenges_and_chat_ids()?;
+        let mut challenge_user_fractions = vec![];
+        for (challenge, chat_id) in challenges_and_chat_ids.iter() {
+            let mut user_fractions = vec![];
+            for (user_id, user_name) in self.get_challenge_users(challenge.id)? {
+                let average_fraction = self.get_average_done_fraction(&challenge, user_id)?;
+                user_fractions.push((user_name, average_fraction));
+            }
+            challenge_user_fractions.push(ChallengeUserFractions {
+                challenge: challenge.clone(),
+                chat_id: *chat_id,
+                user_fractions: user_fractions,
+            });
+        }
+        Ok(ChallengeUpdateData(challenge_user_fractions))
     }
 
     pub fn write_poll_send_date(&self) -> Result<()> {

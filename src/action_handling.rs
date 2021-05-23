@@ -21,9 +21,11 @@ pub fn perform_action(action: &Action) -> Response {
         Action::AddTask(user_id, challenge_name, task_data) => {
             add_task(&database, user_id, challenge_name, task_data)
         }
-        Action::SignupUser(user_id, chat_id) => signup_user(&database, user_id, chat_id),
+        Action::SignupUser(user_id, chat_id, user_name) => signup_user(&database, user_id, chat_id, user_name),
         Action::ErrorMessage(message_text) => reply(&message_text),
-        Action::CheckDateMaybeSendPolls => send_task_polls(&database),
+        Action::CheckDateMaybeSendPolls => {
+            send_task_polls(&database)
+        }
         Action::CheckDateMaybeSendChallengeUpdates => send_challenge_updates(&database),
         Action::SendHelp => Ok(Response::SendHelp),
         Action::ModifyUserTaskTimestamps(poll_id, option_ids) => {
@@ -65,8 +67,8 @@ fn reply(message_text: &str) -> Result<Response> {
     Ok(Response::Reply(message_text.to_string()))
 }
 
-fn signup_user(database: &Database, user_id: &i32, chat_id: &i64) -> Result<Response> {
-    database.signup_user(user_id, chat_id)?;
+fn signup_user(database: &Database, user_id: &i32, chat_id: &i64, user_name: &str) -> Result<Response> {
+    database.signup_user(user_id, chat_id, user_name)?;
     Ok(Response::Reply("Thanks. You signed up.".to_owned()))
 }
 

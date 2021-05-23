@@ -1,17 +1,15 @@
 use chrono::{Datelike, Duration, NaiveDate, Weekday};
 
-use crate::database::period::Period;
+use crate::{database::{period::Period, task_data::TaskData}, time_frame::TimeFrame};
 
-fn get_done_fraction(
-    period: &Period,
-    count: i32,
+pub fn get_done_fraction(
+    task: &TaskData,
     done_timestamps: &[NaiveDate],
-    start_date: &NaiveDate,
-    end_date: &NaiveDate,
+    time_frame: &TimeFrame,
 ) -> f64 {
-    match period {
-        Period::Week => get_done_fraction_weekly(count, done_timestamps, start_date, end_date),
-        Period::Month => get_done_fraction_monthly(count, done_timestamps, start_date, end_date),
+    match task.period {
+        Period::Week => get_done_fraction_weekly(task.count, done_timestamps, &time_frame.start, &time_frame.end),
+        Period::Month => get_done_fraction_monthly(task.count, done_timestamps, &time_frame.start, &time_frame.end),
         Period::Day => todo!(),
     }
 }
